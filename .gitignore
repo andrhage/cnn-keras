@@ -105,3 +105,7 @@ venv.bak/
 
 # datasett
 **data
+
+# modeller og logg
+**logs
+**models

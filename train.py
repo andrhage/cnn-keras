@@ -4,17 +4,17 @@ import glob
 import os
 import numpy as np
 
+from scipy import misc
+import sklearn.model_selection
+import sklearn
+import matplotlib.pyplot as plt
 import tensorflow as tf
+from keras import models
+from keras import layers
+from keras import callbacks
+from tqdm import tqdm
+import keras
 
-
-def generator_for_filenames(*filenames):
-    """
-    Wrapping a list of filenames as a generator function
-    """
-    def generator():
-        for f in zip(*filenames):
-            yield f
-    return generator
 
 
 def preprocess(image, segmentation):
@@ -26,7 +26,6 @@ def preprocess(image, segmentation):
     flip_up_down = False
     flip_left_right = False
     color_change = False
-
     # Setting Height and width values and starting point for boxes
     x_pic, y_pic = 224, 224
     x_min, y_min = 0, 0
@@ -36,7 +35,7 @@ def preprocess(image, segmentation):
     segmentation = tf.image.resize_images(segmentation, [x_pic, y_pic], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
     image = tf.to_float(image) / 255
     segmentation = tf.to_int64(segmentation)
-
+    segmentation = tf.where(segmentation > 0, tf.ones_like(segmentation), tf.zeros_like(segmentation))
     # Doing some processing
 
     if rand_crop is True:
@@ -83,127 +82,36 @@ def preprocess(image, segmentation):
         return image, segmentation
 
 
-def read_image_and_segmentation(img_f, seg_f):
-    """
-    Read images from file using tensorflow and convert the segmentation to appropriate formate.
-    :param img_f: filename for image
-    :param seg_f: filename for segmentation
-    :return: Image and segmentation tensors
-    """
-    img_reader = tf.read_file(img_f)
-    seg_reader = tf.read_file(seg_f)
-    img = tf.image.decode_png(img_reader, channels=3)
-    seg = tf.image.decode_png(seg_reader)
-    seg = tf.where(seg > 0, tf.ones_like(seg), tf.zeros_like(seg))
-    return img, seg
-
-
-def tensors_from_filenames(image_names, segmentation_names, preprocess=preprocess, batch_size=8):
-    """
-    Convert a list of filenames to tensorflow images.
-    :param image_names: image filenames
-    :param segmentation_names: segmentation filenames
-    :param preprocess: A function that is run after the images are read, the takes image and
-    segmentation as input
-    :param batch_size: The batch size returned from the function
-    :return: Tensors with images and corresponding segmentations
-    """
-    dataset = tf.data.Dataset.from_generator(
-        generator_for_filenames(image_names, segmentation_names),
-        output_types=(tf.string, tf.string),
-        output_shapes=(None, None)
-    )
-
-    dataset = dataset.shuffle(buffer_size=100)
-    dataset = dataset.map(read_image_and_segmentation)
-    dataset = dataset.map(preprocess)
-    dataset = dataset.repeat()
-    dataset = dataset.batch(batch_size)
-
-    return dataset.repeat().make_one_shot_iterator().get_next()
-
-
-def filenames(dataset_folder, training=True):
-    sub_dataset = 'training' if training else 'testing'
+def filenames(dataset_folder):
+    sub_dataset = 'training'
     segmentation_names = glob.glob(os.path.join(dataset_folder, sub_dataset, 'gt', '*-ground_truth*.png'),
-                                   recursive=True)
+                                       recursive=True)
     image_names = glob.glob(os.path.join(dataset_folder, sub_dataset, 'images', '*-47-*.png'),
-                                   recursive=True)
+                                       recursive=True)
     return image_names, segmentation_names
 
 
-def model(img, seg):
-    """
-    Improved model by adding more layers and cross entropy loss
-    :param img:
-    :param seg:
-    :return:
-    """
-    # Setting variable to 'True' will make the program run selected operation
-    l2_reg = False
+def keras_model(input_shape):
 
-    # Setting the l2-reg parameter
-    l2 = tf.contrib.layers.l2_regularizer(0.001)
+    model = models.Sequential()
+    # Input layer
+    model.add(layers.Conv2D(32, 11, strides=(2, 2), padding='same', activation='relu', input_shape=input_shape))
 
-    if l2_reg is True:
-        # Down sampling 4 layers encoding
-        x = tf.layers.conv2d(img, 16, [5, 16], kernel_regularizer=l2,
-                             strides=(2, 2), padding='same', activation=tf.nn.relu)
-        x = tf.layers.conv2d(x, 16, [5, 16], kernel_regularizer=l2,
-                             strides=(2, 2), padding='same', activation=tf.nn.relu)
-        x = tf.layers.conv2d(x, 32, [5, 32], kernel_regularizer=l2,
-                             strides=(2, 2), padding='same', activation=tf.nn.relu)
-        x = tf.layers.conv2d(x, 32, [5, 32], kernel_regularizer=l2,
-                             strides=(2, 2), padding='same', activation=tf.nn.relu)
+    # Conv layers
+    model.add(layers.Conv2D(16, 7, strides=(2, 2), padding='same', activation='relu'))
+    model.add(layers.Conv2D(32, 5, strides=(2, 2), padding='same', activation='relu'))
+    model.add(layers.Conv2D(32, 5, strides=(2, 2), padding='same', activation='relu'))
+    model.add(layers.Conv2DTranspose(32, 5, strides=(2, 2), padding='same', activation='relu'))
+    model.add(layers.Conv2DTranspose(32, 5, strides=(2, 2), padding='same', activation='relu'))
+    model.add(layers.Conv2DTranspose(16, 5, strides=(2, 2), padding='same', activation='relu'))
+    model.add(layers.Conv2DTranspose(16, 5, strides=(2, 2), padding='same', activation='relu'))
 
-        # Up sampling 4 layers decoding
-        x = tf.layers.conv2d_transpose(x, 32, [5, 32], kernel_regularizer=l2,
-                                       strides=(2, 2), padding='same', activation=tf.nn.relu)
-        x = tf.layers.conv2d_transpose(x, 32, [5, 32], kernel_regularizer=l2,
-                                       strides=(2, 2), padding='same', activation=tf.nn.relu)
-        x = tf.layers.conv2d_transpose(x, 16, [5, 16], kernel_regularizer=l2,
-                                       strides=(2, 2), padding='same', activation=tf.nn.relu)
-        x = tf.layers.conv2d_transpose(x, 16, [5, 16], kernel_regularizer=l2,
-                                       strides=(2, 2), padding='same', activation=tf.nn.relu)
+    model.add(layers.Conv2D(1, 1, strides=(1, 1), padding='same', activation='sigmoid', name='Banan'))
+    # Compile loss and optimizer
+    model.summary()
+    model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['acc'])
 
-        x = tf.layers.conv2d(x, 1, 1, padding='same', activation=tf.nn.sigmoid)
-
-        x = tf.image.resize_images(x, [224, 224])
-
-        # Adding a l2 regularization
-        cross_entropy = tf.to_float(seg) * tf.log(1e-3 + x) + (1 - tf.to_float(seg)) * tf.log((1 - x) + 1e-3)
-        loss_reg = tf.losses.get_regularization_loss()
-        loss = tf.reduce_mean(- cross_entropy) + loss_reg
-        return x, loss
-    else:
-        # Down sampling 4 layers encoding
-        x = tf.layers.conv2d(img, 16, [5, 16],
-                             strides=(2, 2), padding='same', activation=tf.nn.relu)
-        x = tf.layers.conv2d(x, 16, [5, 16],
-                             strides=(2, 2), padding='same', activation=tf.nn.relu)
-        x = tf.layers.conv2d(x, 32, [5, 32],
-                             strides=(2, 2), padding='same', activation=tf.nn.relu)
-        x = tf.layers.conv2d(x, 32, [5, 32],
-                             strides=(2, 2), padding='same', activation=tf.nn.relu)
-
-        # Up sampling 4 layers decoding
-        x = tf.layers.conv2d_transpose(x, 32, [5, 32],
-                                       strides=(2, 2), padding='same', activation=tf.nn.relu)
-        x = tf.layers.conv2d_transpose(x, 32, [5, 32],
-                                       strides=(2, 2), padding='same', activation=tf.nn.relu)
-        x = tf.layers.conv2d_transpose(x, 16, [5, 16],
-                                       strides=(2, 2), padding='same', activation=tf.nn.relu)
-        x = tf.layers.conv2d_transpose(x, 16, [5, 16],
-                                       strides=(2, 2), padding='same', activation=tf.nn.relu)
-
-        x = tf.layers.conv2d(x, 1, 1, padding='same', activation=tf.nn.sigmoid)
-
-        x = tf.image.resize_images(x, [224, 224])
-
-        # Adding a cross entropy loss function
-        cross_entropy = tf.to_float(seg) * tf.log(1e-3 + x) + (1 - tf.to_float(seg)) * tf.log((1 - x) + 1e-3)
-        loss = tf.reduce_mean(- cross_entropy)
-        return x, loss
+    return model
 
 
 def tensorboard(img, img_val, seg_val, logits_val, logits, seg, loss, loss_val, step):
@@ -284,61 +192,151 @@ def tensorboard(img, img_val, seg_val, logits_val, logits, seg, loss, loss_val, 
     tf.summary.image('Superimposed_validation_label', superimposed_img_seg_val, max_outputs=1, family=family_val)
 
 
-def main(_):
-    # Getting filenames from the kitti dataset
+def make_image(tensor):
+    """
+    Convert an numpy representation image to Image protobuf.
+    Copied from https://github.com/lanpa/tensorboard-pytorch/
+    """
+    from PIL import Image
+    height, width, channel = tensor.shape
+    image = Image.fromarray(tensor)
+    import io
+    output = io.BytesIO()
+    image.save(output, format='PNG')
+    image_string = output.getvalue()
+    output.close()
+    return tf.Summary.Image(height=height,
+                         width=width,
+                         colorspace=channel,
+                         encoded_image_string=image_string)
+
+
+class TensorBoardImage(keras.callbacks.Callback):
+    def __init__(self, tag):
+        super().__init__()
+        self.tag = tag
+
+    def on_epoch_end(self, epoch, logs={}):
+        # Load image
+        img = data.astronaut()
+        # Do something to the image
+        img = (255 * skimage.util.random_noise(img)).astype('uint8')
+
+        image = make_image(img)
+        summary = tf.Summary(value=[tf.Summary.Value(tag=self.tag, image=image)])
+        writer = tf.summary.FileWriter('./logs')
+        writer.add_summary(summary, epoch)
+        writer.close()
+
+        return
+
+
+def fetch_data(debug_mode=False):
+    """
+
+    :return:
+    """
+
     image_names, segmentation_names = filenames('data')
+    x, y = [], []
+    i = 0
+    sess = tf.InteractiveSession()
+    with tf.variable_scope('preprocess'):
+        for img_path, seg_path in tqdm(zip(image_names, segmentation_names)):
 
-    # Get image tensors from the filenames
-    img, seg = tensors_from_filenames(
-        image_names[:-3],
-        segmentation_names[:-3],
-        batch_size=8)
-    # Get the validation tensors
-    img_val, seg_val = tensors_from_filenames(
-        image_names[-3:],
-        segmentation_names[-3:],
-        batch_size=8)
+            # Read image
+            img = misc.imread(img_path)
+            seg = misc.imread(seg_path)
 
-    #Create the model
-    with tf.variable_scope('model'):
-        logits, loss = model(img, seg)
+            # Preprocess image
+            img, seg = preprocess(img, seg)
+            img = img.eval()
+            seg = seg.eval()[:,:,0,None]
 
-    #Reuse the same model for validation
-    with tf.variable_scope('model', reuse=True):
-        logits_val, loss_val = model(img_val, seg_val)
+            x.append(img)
+            y.append(seg)
 
-    #Keep track of number of steps
-    step = tf.train.get_or_create_global_step()
-    #Create an optimizer
-    with tf.control_dependencies(tf.get_collection(tf.GraphKeys.UPDATE_OPS)):
-        train_op = tf.train.AdamOptimizer(0.001).minimize(
-            loss,
-            global_step=step)
+            if debug_mode is True:
+                # Debug function
+                i += 1
+                if i == 10:
+                    break
+    return x, y
 
-    # Setting up Tensorboard
-    tensorboard(img, img_val, seg_val, logits_val, logits, seg, loss, loss_val, step)
 
-    # tf.summary.scalar('step', step)
+def setup_model(x_train):
+    """
+    Sets up or loads a model
+    :return:
+    """
+    model = keras_model(x_train[0].shape)
 
-    saver_hook = tf.train.CheckpointSaverHook('logs', save_secs=15)
-    summary_saver_hook = tf.train.SummarySaverHook(
-        summary_op=tf.summary.merge_all(),
-        output_dir='logs',
-        save_secs=15
-    )
+    tensorboard_callback = callbacks.TensorBoard(log_dir='./logs', histogram_freq=0, batch_size=8, write_graph=True,
+                                                 write_grads=True, write_images=True,
+                                                 embeddings_freq=0, embeddings_layer_names=None,
+                                                 embeddings_metadata=None, embeddings_data=None,
+                                                 update_freq='epoch'
+                                                 )
+    checkpoint = callbacks.ModelCheckpoint('models/weights.{epoch:02d}-{val_acc:.2f}.hdf5', monitor='val_acc',
+                                           verbose=1, save_best_only=True,
+                                           save_weights_only=False, mode='auto', period=1)
 
-    #Run training
-    with tf.train.SingularMonitoredSession(
-            hooks=[saver_hook, summary_saver_hook],
-            checkpoint_dir='logs') as sess:
-        while not sess.should_stop():
-            _, loss_, step_ = sess.run([train_op, loss, step])
+    #tbi_callback = TensorBoardImage('Image Example')
 
-            print(step_, 'loss', loss_)
-            if step_ % 10 == 0:
-                loss_ = sess.run([loss_val])
-                print('\t\t\tval_loss', loss_)
+    return model, [tensorboard_callback, checkpoint]
+
+
+def train_network():
+    """
+
+    :return:
+    """
+
+
+def split_data(x_data, y_data):
+    """
+    Splits data into training and validation
+    :return:
+    """
+    x_train, x_val, y_train, y_val = sklearn.model_selection.train_test_split(x_data, y_data, test_size=0.1,
+                                                                              random_state=42)
+    return np.array(x_train), np.array(x_val), np.array(y_train), np.array(y_val)
+
+
+def main():
+
+    # Getting filenames
+    mode = 'testing'
+
+    # Fetch data set
+    x_data, y_data = fetch_data(debug_mode=False)
+
+    # Split data
+    x_train, x_val, y_train, y_val = split_data(x_data, y_data)
+
+    if mode == 'training':
+
+        # Create model
+        model, callbacks_model = setup_model(x_train)
+
+        # Train model
+        models.Sequential.fit(model, x_train, y_train, batch_size=8,
+                              epochs=500, verbose=1, validation_data=(x_val, y_val),
+                              shuffle=True, callbacks=callbacks_model
+                              )
+
+    elif mode == 'testing':
+        model = models.load_model('models/weights.123-0.97.hdf5')
+        model.summary()
+        for img, seg in zip(x_val, y_val):
+            img = np.reshape(img, (1, 224, 224, 3))
+            prediction = models.Sequential.predict(model, img)
+            fig, (ax1, ax2, ax3) = plt.subplots(1, 3)
+            ax1.imshow(np.squeeze(prediction))
+            ax2.imshow(np.squeeze(img))
+            ax3.imshow(np.squeeze(seg))
+            plt.show()
 
 
 if __name__ == '__main__':
-    main(None)
+    main()
