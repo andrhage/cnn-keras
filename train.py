@@ -13,7 +13,10 @@ from keras import models
 from keras import layers
 from keras import callbacks
 from tqdm import tqdm
-import keras
+import configparser
+
+config = configparser.ConfigParser()
+config.read("config.ini")
 
 
 
@@ -82,13 +85,20 @@ def preprocess(image, segmentation):
         return image, segmentation
 
 
-def filenames(dataset_folder):
-    sub_dataset = 'training'
-    segmentation_names = glob.glob(os.path.join(dataset_folder, sub_dataset, 'gt', '*-ground_truth*.png'),
-                                       recursive=True)
-    image_names = glob.glob(os.path.join(dataset_folder, sub_dataset, 'images', '*-47-*.png'),
-                                       recursive=True)
-    return image_names, segmentation_names
+def filenames(dataset_folder, test=None):
+    if test is True:
+        sub_dataset = 'testing'
+        image_names = glob.glob(os.path.join(dataset_folder, sub_dataset, 'images', '*-47-*.png'),
+                                recursive=True)
+        return image_names
+    else:
+
+        sub_dataset = 'training'
+        segmentation_names = glob.glob(os.path.join(dataset_folder, sub_dataset, 'gt', '*-ground_truth*.png'),
+                                           recursive=True)
+        image_names = glob.glob(os.path.join(dataset_folder, sub_dataset, 'images', '*-47-*.png'),
+                                           recursive=True)
+        return image_names, segmentation_names
 
 
 def keras_model(input_shape):
@@ -106,7 +116,7 @@ def keras_model(input_shape):
     model.add(layers.Conv2DTranspose(16, 5, strides=(2, 2), padding='same', activation='relu'))
     model.add(layers.Conv2DTranspose(16, 5, strides=(2, 2), padding='same', activation='relu'))
 
-    model.add(layers.Conv2D(1, 1, strides=(1, 1), padding='same', activation='sigmoid', name='Banan'))
+    model.add(layers.Conv2D(1, 1, strides=(1, 1), padding='same', activation='sigmoid'))
     # Compile loss and optimizer
     model.summary()
     model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['acc'])
@@ -114,154 +124,64 @@ def keras_model(input_shape):
     return model
 
 
-def tensorboard(img, img_val, seg_val, logits_val, logits, seg, loss, loss_val, step):
-    """
-    Setting up Tensorboard
-    :param img:
-    :param img_val:
-    :param seg_val:
-    :param logits_val:
-    :param logits:
-    :param seg:
-    :param loss:
-    :param loss_val:
-    :param step:
-    :return:
-    """
-
-    # Setting variables for Family in Tensorboard
-    family_train = 'Training'
-    family_val = 'Validation'
-
-    # Setting up calculations for the validation summary
-    accuracy_val, accuracy_update_val = tf.metrics.accuracy(seg_val, logits_val)
-    precision_val, precision_update_val = tf.metrics.precision(seg_val, logits_val)
-    recall_val, recall_update_val = tf.metrics.recall(seg_val, logits_val)
-    # 𝛽 = 1
-    f_measure_val = (2 * precision_update_val * recall_update_val) / (precision_update_val + recall_update_val)
-
-    # Setting up calculations for the training summary
-    accuracy_train, accuracy_update_train = tf.metrics.accuracy(seg, logits)
-    precision_train, precision_update_train = tf.metrics.precision(seg, logits)
-    recall_train, recall_update_train = tf.metrics.recall(seg, logits)
-    # 𝛽 = 1
-    f_measure_train = (2 * precision_update_train * recall_update_train) / (precision_update_train + recall_update_train)
-
-    # Tensorboard scalars for training
-    tf.summary.scalar('Accuracy', accuracy_update_train, family=family_train)
-    tf.summary.scalar('Precision', precision_update_train, family=family_train)
-    tf.summary.scalar('Recall', recall_update_train, family=family_train)
-    tf.summary.scalar('F_measure', f_measure_train, family=family_train)
-    tf.summary.scalar('Loss', loss, family=family_train)
-    tf.summary.scalar('Step', step, family=family_train)
-
-    # Tensorboard scalars for validation
-    tf.summary.scalar('Accuracy', accuracy_update_val, family=family_val)
-    tf.summary.scalar('Precision', precision_update_val, family=family_val)
-    tf.summary.scalar('Recall', recall_update_val, family=family_val)
-    tf.summary.scalar('F_measure', f_measure_val, family=family_val)
-    tf.summary.scalar('Loss_val', loss_val, family=family_val)
-    tf.summary.scalar('Step', step, family=family_val)
-
-    # Making a zeros array for superimposed images
-    zeros_train = tf.zeros(tf.shape(logits))
-
-    # Tensorboard images training
-    superimposed_img_train = img + tf.concat(axis=3, values=(zeros_train, zeros_train, logits))
-    superimposed_img_train = tf.clip_by_value(superimposed_img_train, 0, 1)
-    superimposed_img_seg_train = img + tf.concat(axis=3, values=(zeros_train, tf.to_float(seg), zeros_train))
-    superimposed_img_seg_train = tf.clip_by_value(superimposed_img_seg_train, 0, 1)
-    tf.summary.image('Training', img, max_outputs=1, family=family_train)
-    tf.summary.image('Training_predicted', logits, max_outputs=1, family=family_train)
-    tf.summary.image('Seg_training', tf.cast(seg, dtype=tf.float32), max_outputs=1, family=family_train)
-    tf.summary.image('Superimposed_training', superimposed_img_train, max_outputs=1, family=family_train)
-    tf.summary.image('Superimposed_training_label', superimposed_img_seg_train, max_outputs=1, family=family_train)
-
-    # Making a zeros array for superimposed images
-    zeros_val = tf.zeros(tf.shape(logits_val))
-
-    # Tensorboard images validation
-    superimposed_img_val = img_val + tf.concat(axis=3, values=(zeros_val, zeros_val, logits_val))
-    superimposed_img_val = tf.clip_by_value(superimposed_img_val, 0, 1)
-    superimposed_img_seg_val = img_val + tf.concat(axis=3, values=(zeros_val, tf.to_float(seg_val), zeros_val))
-    superimposed_img_seg_val = tf.clip_by_value(superimposed_img_seg_val, 0, 1)
-    tf.summary.image('Validation', img_val, max_outputs=1, family=family_val)
-    tf.summary.image('Validation_predicted', logits_val, max_outputs=1, family=family_val)
-    tf.summary.image('Seg_val', tf.cast(seg_val, dtype=tf.float32), max_outputs=1, family=family_val)
-    tf.summary.image('Superimposed_validation', superimposed_img_val, max_outputs=1, family=family_val)
-    tf.summary.image('Superimposed_validation_label', superimposed_img_seg_val, max_outputs=1, family=family_val)
-
-
-def make_image(tensor):
-    """
-    Convert an numpy representation image to Image protobuf.
-    Copied from https://github.com/lanpa/tensorboard-pytorch/
-    """
-    from PIL import Image
-    height, width, channel = tensor.shape
-    image = Image.fromarray(tensor)
-    import io
-    output = io.BytesIO()
-    image.save(output, format='PNG')
-    image_string = output.getvalue()
-    output.close()
-    return tf.Summary.Image(height=height,
-                         width=width,
-                         colorspace=channel,
-                         encoded_image_string=image_string)
-
-
-class TensorBoardImage(keras.callbacks.Callback):
-    def __init__(self, tag):
-        super().__init__()
-        self.tag = tag
-
-    def on_epoch_end(self, epoch, logs={}):
-        # Load image
-        img = data.astronaut()
-        # Do something to the image
-        img = (255 * skimage.util.random_noise(img)).astype('uint8')
-
-        image = make_image(img)
-        summary = tf.Summary(value=[tf.Summary.Value(tag=self.tag, image=image)])
-        writer = tf.summary.FileWriter('./logs')
-        writer.add_summary(summary, epoch)
-        writer.close()
-
-        return
-
-
-def fetch_data(debug_mode=False):
+def fetch_data(debug_mode=config['testing/debug'].getboolean('debug_mode'), test=None):
     """
 
     :return:
     """
+    if test is True:
+        image_names = filenames('data', test=True)
+        x = []
+        i = 0
+        sess = tf.InteractiveSession()
+        with tf.variable_scope('preprocess'):
+            for img_path in image_names:
 
-    image_names, segmentation_names = filenames('data')
-    x, y = [], []
-    i = 0
-    sess = tf.InteractiveSession()
-    with tf.variable_scope('preprocess'):
-        for img_path, seg_path in tqdm(zip(image_names, segmentation_names)):
+                # Read image
+                img = misc.imread(img_path)
 
-            # Read image
-            img = misc.imread(img_path)
-            seg = misc.imread(seg_path)
+                # Preprocess image
+                x_pic, y_pic = 224, 224
 
-            # Preprocess image
-            img, seg = preprocess(img, seg)
-            img = img.eval()
-            seg = seg.eval()[:,:,0,None]
+                # Set images size to a constant
+                img = tf.image.resize_images(img, [x_pic, y_pic])
+                img = tf.to_float(img) / 255
+                img = img.eval()
 
-            x.append(img)
-            y.append(seg)
+                x.append(img)
 
-            if debug_mode is True:
-                # Debug function
-                i += 1
-                if i == 10:
-                    break
-    return x, y
+                if debug_mode is True:
+                    # Debug function
+                    i += 1
+                    if i == 10:
+                        break
+        return x
+    else:
+        image_names, segmentation_names = filenames('data')
+        x, y = [], []
+        i = 0
+        sess = tf.InteractiveSession()
+        with tf.variable_scope('preprocess'):
+            for img_path, seg_path in tqdm(zip(image_names, segmentation_names)):
+
+                # Read image
+                img = misc.imread(img_path)
+                seg = misc.imread(seg_path)
+
+                # Preprocess image
+                img, seg = preprocess(img, seg)
+                img = img.eval()
+                seg = seg.eval()[:, :, 0, None]
+
+                x.append(img)
+                y.append(seg)
+
+                if debug_mode is True:
+                    # Debug function
+                    i += 1
+                    if i == 10:
+                        break
+        return x, y
 
 
 def setup_model(x_train):
@@ -304,38 +224,66 @@ def split_data(x_data, y_data):
 
 
 def main():
-
-    # Getting filenames
-    mode = 'testing'
-
-    # Fetch data set
-    x_data, y_data = fetch_data(debug_mode=False)
-
-    # Split data
-    x_train, x_val, y_train, y_val = split_data(x_data, y_data)
+    # 'training' or 'testing' mode
+    mode = config['testing/debug']['mode']
+    print(mode)
 
     if mode == 'training':
+        # Fetch data set
+        x_data, y_data = fetch_data(debug_mode=config['testing/debug'].getboolean('debug_mode'))
+
+        # Split data
+        x_train, x_val, y_train, y_val = split_data(x_data, y_data)
 
         # Create model
         model, callbacks_model = setup_model(x_train)
 
         # Train model
         models.Sequential.fit(model, x_train, y_train, batch_size=8,
-                              epochs=500, verbose=1, validation_data=(x_val, y_val),
+                              epochs=350, verbose=1, validation_data=(x_val, y_val),
                               shuffle=True, callbacks=callbacks_model
                               )
 
     elif mode == 'testing':
-        model = models.load_model('models/weights.123-0.97.hdf5')
-        model.summary()
-        for img, seg in zip(x_val, y_val):
-            img = np.reshape(img, (1, 224, 224, 3))
-            prediction = models.Sequential.predict(model, img)
-            fig, (ax1, ax2, ax3) = plt.subplots(1, 3)
-            ax1.imshow(np.squeeze(prediction))
-            ax2.imshow(np.squeeze(img))
-            ax3.imshow(np.squeeze(seg))
-            plt.show()
+
+        # If the dataset has gt labels, set this to <true>
+        label = config['predictions'].getboolean('label')
+
+        if label is True:
+            # Fetch data set
+            x_data, y_data = fetch_data(debug_mode=config['testing/debug'].getboolean('debug_mode'))
+
+            # Split data
+            x_train, x_val, y_train, y_val = split_data(x_data, y_data)
+
+            # Load best weights from models
+            model = models.load_model('models/weights.124-0.97.hdf5')
+            model.summary()
+
+            for img, seg in zip(x_val, y_val):
+                img = np.reshape(img, (1, 224, 224, 3))
+                prediction = models.Sequential.predict(model, img)
+                fig, (ax1, ax2, ax3) = plt.subplots(1, 3)
+                ax1.imshow(np.squeeze(prediction))
+                ax2.imshow(np.squeeze(img))
+                ax3.imshow(np.squeeze(seg))
+                plt.show()
+        else:
+            # Fetch test data set
+            x_test = fetch_data(debug_mode=config['testing/debug'].getboolean('debug_mode'), test=True)
+
+            # Load best weights from models
+            model = models.load_model('models/weights.124-0.97.hdf5')
+            model.summary()
+            for i, img in enumerate(x_test):
+                img = np.reshape(img, (1, 224, 224, 3))
+                prediction = models.Sequential.predict(model, img)
+                fig, (ax1, ax2) = plt.subplots(1, 2)
+                ax1.imshow(np.squeeze(prediction))
+                ax2.imshow(np.squeeze(img))
+                fig.savefig(('{}/prediction_' + str(i) + '.png').format('D:/Masteroppgave/Master-thesis/predictions'))
+                plt.show()
+                i += 1
 
 
 if __name__ == '__main__':
