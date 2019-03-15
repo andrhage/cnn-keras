@@ -132,10 +132,9 @@ def fetch_data(debug_mode=config['testing/debug'].getboolean('debug_mode'), test
     if test is True:
         image_names = filenames('data', test=True)
         x = []
-        i = 0
         sess = tf.InteractiveSession()
         with tf.variable_scope('preprocess'):
-            for img_path in image_names:
+            for i, img_path in enumerate(image_names):
 
                 # Read image
                 img = misc.imread(img_path)
@@ -184,7 +183,7 @@ def fetch_data(debug_mode=config['testing/debug'].getboolean('debug_mode'), test
         return x, y
 
 
-def setup_model(x_train):
+def setup_model_and_tensorboard(x_train):
     """
     Sets up or loads a model
     :return:
@@ -236,7 +235,7 @@ def main():
         x_train, x_val, y_train, y_val = split_data(x_data, y_data)
 
         # Create model
-        model, callbacks_model = setup_model(x_train)
+        model, callbacks_model = setup_model_and_tensorboard(x_train)
 
         # Train model
         models.Sequential.fit(model, x_train, y_train, batch_size=8,
