@@ -23,25 +23,22 @@ config.read("config.ini")
 
 def preprocess(image, segmentation):
     """
-    A preprocess function that is runned after images are read.
+    Preprocessing images. User can choose of the following preprocessing operations:
+    1. Random crops
+    2. Flip up down
+    3. Flip left right
+    4. Color changes
     """
-    # Setting variables to 'True' will make the program run selected operations. Only one variable can be true at a time
-    rand_crop = False
-    flip_up_down = False
-    flip_left_right = False
-    color_change = False
-    # Setting Height and width values and starting point for boxes
-    x_pic, y_pic = 224, 224
-    x_min, y_min = 0, 0
 
     # Doing some processing
 
-    if rand_crop is True:
+    if config['data_processing'].getboolean('rand_crop') is True:
         # Random cropping
         box = np.ones([1, 1, 4])
-        boxes_size = [y_min, x_min, x_pic - 1, y_pic - 1]
+        boxes_size = [int(config['data_processing']['y_min']), int(config['data_processing']['x_min']),
+                      int(config['data_processing']['x_pic']) - 1, int(config['data_processing']['y_pic']) - 1]
         for i in range(4):
-            box[:, :, i] = boxes_size[i] / x_pic
+            box[:, :, i] = boxes_size[i] / int(config['data_processing']['x_pic'])
 
         bbox = tf.convert_to_tensor(box, np.float32)
         begin, size, bbox_for_draw = tf.image.sample_distorted_bounding_box(
@@ -51,27 +48,28 @@ def preprocess(image, segmentation):
 
         # Employ the bounding box to distort the image.
         image = tf.slice(image, begin, size)
-        image = tf.image.resize_images(image, [x_pic, y_pic])
-        image.set_shape([x_pic, y_pic, 3])
+        image = tf.image.resize_images(image, [int(config['data_processing']['x_pic']),
+                                               int(config['data_processing']['y_pic'])])
+        image.set_shape([int(config['data_processing']['x_pic']), int(config['data_processing']['y_pic']), 3])
 
         segmentation = tf.slice(segmentation, begin, size)
-        segmentation = tf.image.resize_images(segmentation, [x_pic, y_pic])
-        segmentation.set_shape([x_pic, y_pic, 1])
+        segmentation = tf.image.resize_images(segmentation, [int(config['data_processing']['x_pic']), int(config['data_processing']['y_pic'])])
+        segmentation.set_shape([int(config['data_processing']['x_pic']), int(config['data_processing']['y_pic']), 1])
         return image, segmentation
 
-    elif flip_up_down is True:
+    elif config['data_processing'].getboolean('flip_up_down') is True:
         # Flipping up/down
         image = tf.image.random_flip_up_down(image, seed=25)
         segmentation = tf.image.random_flip_up_down(segmentation, seed=25)
         return image, segmentation
 
-    elif flip_left_right is True:
+    elif config['data_processing'].getboolean('flip_left_right') is True:
         # Flipping left/right
         image = tf.image.random_flip_left_right(image, seed=30)
         segmentation = tf.image.random_flip_left_right(segmentation, seed=30)
         return image, segmentation
 
-    elif color_change is True:
+    elif config['data_processing'].getboolean('color_change') is True:
         # Color changes
         image = tf.image.random_hue(image, max_delta=0.3)
         return image, segmentation
@@ -81,6 +79,13 @@ def preprocess(image, segmentation):
 
 
 def filenames(dataset_folder, test=None):
+    """
+    Returning a list with image names from both testing and training directory according to users choice
+
+    :param dataset_folder:
+    :param test:
+    :return:
+    """
     if test is True:
         sub_dataset = 'testing'
         image_names = glob.glob(os.path.join(dataset_folder, sub_dataset, 'images', '*-47-*.png'),
@@ -97,6 +102,12 @@ def filenames(dataset_folder, test=None):
 
 
 def keras_model(input_shape):
+    """
+    The conv net model implemented with Keras
+
+    :param input_shape:
+    :return:
+    """
     # Initializing
     model = models.Sequential()
     # Input layer
@@ -120,6 +131,7 @@ def keras_model(input_shape):
 
 def fetch_data(debug_mode=config['testing/debug'].getboolean('debug_mode'), test=None):
     """
+    Reading the images and prepares them for training/testing before appending them in a list
 
     :return:
     """
@@ -132,12 +144,6 @@ def fetch_data(debug_mode=config['testing/debug'].getboolean('debug_mode'), test
             img = misc.imread(img_path)
 
             # Preprocess image
-
-            # Set images size to a constant
-            # img = tf.image.resize_images(img, [x_pic, y_pic])
-            # img = tf.to_float(img) / 255
-            # img = img.eval()
-
             img = cv2.resize(img, (int(config['data_processing']['x_pic']), int(config['data_processing']['y_pic'])))
             img = img.astype(float) / 255
 
@@ -160,10 +166,6 @@ def fetch_data(debug_mode=config['testing/debug'].getboolean('debug_mode'), test
             seg = misc.imread(seg_path)
 
             # Preprocess image
-            # img, seg = preprocess(img, seg)
-            # img = img.eval()
-            # seg = seg.eval()[:, :, 0, None]
-
             # Set images size to a constant
             img = cv2.resize(img, (int(config['data_processing']['x_pic']), int(config['data_processing']['y_pic'])))
             seg = cv2.resize(seg, (int(config['data_processing']['x_pic']), int(config['data_processing']['y_pic'])))
@@ -203,16 +205,10 @@ def setup_model_and_tensorboard(x_train):
     return model, [tensorboard_callback, checkpoint]
 
 
-def train_network():
-    """
-
-    :return:
-    """
-
-
 def split_data(x_data, y_data):
     """
-    Splits data into training and validation
+    Splits data into training and validation sets
+    
     :return:
     """
     x_train, x_val, y_train, y_val = sklearn.model_selection.train_test_split(x_data, y_data, test_size=0.1,
