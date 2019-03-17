@@ -14,10 +14,11 @@ from keras import layers
 from keras import callbacks
 from tqdm import tqdm
 import configparser
+import cv2
+
 
 config = configparser.ConfigParser()
 config.read("config.ini")
-
 
 
 def preprocess(image, segmentation):
@@ -33,12 +34,6 @@ def preprocess(image, segmentation):
     x_pic, y_pic = 224, 224
     x_min, y_min = 0, 0
 
-    # Set images size to a constant
-    image = tf.image.resize_images(image, [x_pic, y_pic])
-    segmentation = tf.image.resize_images(segmentation, [x_pic, y_pic], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
-    image = tf.to_float(image) / 255
-    segmentation = tf.to_int64(segmentation)
-    segmentation = tf.where(segmentation > 0, tf.ones_like(segmentation), tf.zeros_like(segmentation))
     # Doing some processing
 
     if rand_crop is True:
@@ -102,11 +97,10 @@ def filenames(dataset_folder, test=None):
 
 
 def keras_model(input_shape):
-
+    # Initializing
     model = models.Sequential()
     # Input layer
     model.add(layers.Conv2D(32, 11, strides=(2, 2), padding='same', activation='relu', input_shape=input_shape))
-
     # Conv layers
     model.add(layers.Conv2D(16, 7, strides=(2, 2), padding='same', activation='relu'))
     model.add(layers.Conv2D(32, 5, strides=(2, 2), padding='same', activation='relu'))
@@ -115,9 +109,9 @@ def keras_model(input_shape):
     model.add(layers.Conv2DTranspose(32, 5, strides=(2, 2), padding='same', activation='relu'))
     model.add(layers.Conv2DTranspose(16, 5, strides=(2, 2), padding='same', activation='relu'))
     model.add(layers.Conv2DTranspose(16, 5, strides=(2, 2), padding='same', activation='relu'))
-
+    # Activation layer
     model.add(layers.Conv2D(1, 1, strides=(1, 1), padding='same', activation='sigmoid'))
-    # Compile loss and optimizer
+    # Compile loss and optimizer, and printing the network structure summary
     model.summary()
     model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['acc'])
 
@@ -132,54 +126,60 @@ def fetch_data(debug_mode=config['testing/debug'].getboolean('debug_mode'), test
     if test is True:
         image_names = filenames('data', test=True)
         x = []
-        sess = tf.InteractiveSession()
-        with tf.variable_scope('preprocess'):
-            for i, img_path in enumerate(image_names):
+        for i, img_path in enumerate(image_names):
 
-                # Read image
-                img = misc.imread(img_path)
+            # Read image
+            img = misc.imread(img_path)
 
-                # Preprocess image
-                x_pic, y_pic = 224, 224
+            # Preprocess image
 
-                # Set images size to a constant
-                img = tf.image.resize_images(img, [x_pic, y_pic])
-                img = tf.to_float(img) / 255
-                img = img.eval()
+            # Set images size to a constant
+            # img = tf.image.resize_images(img, [x_pic, y_pic])
+            # img = tf.to_float(img) / 255
+            # img = img.eval()
 
-                x.append(img)
+            img = cv2.resize(img, (int(config['data_processing']['x_pic']), int(config['data_processing']['y_pic'])))
+            img = img.astype(float) / 255
 
-                if debug_mode is True:
-                    # Debug function
-                    i += 1
-                    if i == 10:
-                        break
+            x.append(img)
+
+            if debug_mode is True:
+                # Debug function
+                i += 1
+                if i == 10:
+                    break
         return x
     else:
         image_names, segmentation_names = filenames('data')
         x, y = [], []
         i = 0
-        sess = tf.InteractiveSession()
-        with tf.variable_scope('preprocess'):
-            for img_path, seg_path in tqdm(zip(image_names, segmentation_names)):
+        for img_path, seg_path in tqdm(zip(image_names, segmentation_names)):
 
-                # Read image
-                img = misc.imread(img_path)
-                seg = misc.imread(seg_path)
+            # Read image
+            img = misc.imread(img_path)
+            seg = misc.imread(seg_path)
 
-                # Preprocess image
-                img, seg = preprocess(img, seg)
-                img = img.eval()
-                seg = seg.eval()[:, :, 0, None]
+            # Preprocess image
+            # img, seg = preprocess(img, seg)
+            # img = img.eval()
+            # seg = seg.eval()[:, :, 0, None]
 
-                x.append(img)
-                y.append(seg)
+            # Set images size to a constant
+            img = cv2.resize(img, (int(config['data_processing']['x_pic']), int(config['data_processing']['y_pic'])))
+            seg = cv2.resize(seg, (int(config['data_processing']['x_pic']), int(config['data_processing']['y_pic'])))
+            img = img.astype(float) / 255
+            seg = seg.astype(int)
+            seg = np.array((seg - np.min(seg)) / (np.max(seg) - np.min(seg)))
+            seg = seg[:, :, 0, None]
 
-                if debug_mode is True:
-                    # Debug function
-                    i += 1
-                    if i == 10:
-                        break
+            x.append(img)
+            y.append(seg)
+
+            if debug_mode is True:
+                # Debug function
+                i += 1
+                if i == 10:
+                    break
         return x, y
 
 
@@ -199,8 +199,6 @@ def setup_model_and_tensorboard(x_train):
     checkpoint = callbacks.ModelCheckpoint('models/weights.{epoch:02d}-{val_acc:.2f}.hdf5', monitor='val_acc',
                                            verbose=1, save_best_only=True,
                                            save_weights_only=False, mode='auto', period=1)
-
-    #tbi_callback = TensorBoardImage('Image Example')
 
     return model, [tensorboard_callback, checkpoint]
 
@@ -225,7 +223,6 @@ def split_data(x_data, y_data):
 def main():
     # 'training' or 'testing' mode
     mode = config['testing/debug']['mode']
-    print(mode)
 
     if mode == 'training':
         # Fetch data set
@@ -245,7 +242,6 @@ def main():
 
     elif mode == 'testing':
 
-        # If the dataset has gt labels, set this to <true>
         label = config['predictions'].getboolean('label')
 
         if label is True:
@@ -256,7 +252,7 @@ def main():
             x_train, x_val, y_train, y_val = split_data(x_data, y_data)
 
             # Load best weights from models
-            model = models.load_model('models/weights.124-0.97.hdf5')
+            model = models.load_model('models/' + config['predictions']['weights'])
             model.summary()
 
             for img, seg in zip(x_val, y_val):
@@ -272,7 +268,7 @@ def main():
             x_test = fetch_data(debug_mode=config['testing/debug'].getboolean('debug_mode'), test=True)
 
             # Load best weights from models
-            model = models.load_model('models/weights.124-0.97.hdf5')
+            model = models.load_model('models/' + config['predictions']['weights'])
             model.summary()
             for i, img in enumerate(x_test):
                 img = np.reshape(img, (1, 224, 224, 3))
