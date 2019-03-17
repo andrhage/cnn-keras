@@ -78,57 +78,6 @@ def preprocess(image, segmentation):
         return image, segmentation
 
 
-def filenames(dataset_folder, test=None):
-    """
-    Returning a list with image names from both testing and training directory according to users choice
-
-    :param dataset_folder:
-    :param test:
-    :return:
-    """
-    if test is True:
-        sub_dataset = 'testing'
-        image_names = glob.glob(os.path.join(dataset_folder, sub_dataset, 'images', '*-47-*.png'),
-                                recursive=True)
-        return image_names
-    else:
-
-        sub_dataset = 'training'
-        segmentation_names = glob.glob(os.path.join(dataset_folder, sub_dataset, 'gt', '*-ground_truth*.png'),
-                                           recursive=True)
-        image_names = glob.glob(os.path.join(dataset_folder, sub_dataset, 'images', '*-47-*.png'),
-                                           recursive=True)
-        return image_names, segmentation_names
-
-
-def keras_model(input_shape):
-    """
-    The conv net model implemented with Keras
-
-    :param input_shape:
-    :return:
-    """
-    # Initializing
-    model = models.Sequential()
-    # Input layer
-    model.add(layers.Conv2D(32, 11, strides=(2, 2), padding='same', activation='relu', input_shape=input_shape))
-    # Conv layers
-    model.add(layers.Conv2D(16, 7, strides=(2, 2), padding='same', activation='relu'))
-    model.add(layers.Conv2D(32, 5, strides=(2, 2), padding='same', activation='relu'))
-    model.add(layers.Conv2D(32, 5, strides=(2, 2), padding='same', activation='relu'))
-    model.add(layers.Conv2DTranspose(32, 5, strides=(2, 2), padding='same', activation='relu'))
-    model.add(layers.Conv2DTranspose(32, 5, strides=(2, 2), padding='same', activation='relu'))
-    model.add(layers.Conv2DTranspose(16, 5, strides=(2, 2), padding='same', activation='relu'))
-    model.add(layers.Conv2DTranspose(16, 5, strides=(2, 2), padding='same', activation='relu'))
-    # Activation layer
-    model.add(layers.Conv2D(1, 1, strides=(1, 1), padding='same', activation='sigmoid'))
-    # Compile loss and optimizer, and printing the network structure summary
-    model.summary()
-    model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['acc'])
-
-    return model
-
-
 def fetch_data(debug_mode=config['testing/debug'].getboolean('debug_mode'), test=None):
     """
     Reading the images and prepares them for training/testing before appending them in a list
@@ -185,6 +134,68 @@ def fetch_data(debug_mode=config['testing/debug'].getboolean('debug_mode'), test
         return x, y
 
 
+def filenames(dataset_folder, test=None):
+    """
+    Returning a list with image names from both testing and training directory according to users choice
+
+    :param dataset_folder:
+    :param test:
+    :return:
+    """
+    if test is True:
+        sub_dataset = 'testing'
+        image_names = glob.glob(os.path.join(dataset_folder, sub_dataset, 'images', '*-47-*.png'),
+                                recursive=True)
+        return image_names
+    else:
+
+        sub_dataset = 'training'
+        segmentation_names = glob.glob(os.path.join(dataset_folder, sub_dataset, 'gt', '*-ground_truth*.png'),
+                                           recursive=True)
+        image_names = glob.glob(os.path.join(dataset_folder, sub_dataset, 'images', '*-47-*.png'),
+                                           recursive=True)
+        return image_names, segmentation_names
+
+
+def split_data(x_data, y_data):
+    """
+    Splits data into training and validation sets
+
+    :return:
+    """
+    x_train, x_val, y_train, y_val = sklearn.model_selection.train_test_split(x_data, y_data, test_size=0.1,
+                                                                              random_state=42)
+    return np.array(x_train), np.array(x_val), np.array(y_train), np.array(y_val)
+
+
+def keras_model(input_shape):
+    """
+    The conv net model implemented with Keras
+
+    :param input_shape:
+    :return:
+    """
+    # Initializing
+    model = models.Sequential()
+    # Input layer
+    model.add(layers.Conv2D(32, 11, strides=(2, 2), padding='same', activation='relu', input_shape=input_shape))
+    # Conv layers
+    model.add(layers.Conv2D(16, 7, strides=(2, 2), padding='same', activation='relu'))
+    model.add(layers.Conv2D(32, 5, strides=(2, 2), padding='same', activation='relu'))
+    model.add(layers.Conv2D(32, 5, strides=(2, 2), padding='same', activation='relu'))
+    model.add(layers.Conv2DTranspose(32, 5, strides=(2, 2), padding='same', activation='relu'))
+    model.add(layers.Conv2DTranspose(32, 5, strides=(2, 2), padding='same', activation='relu'))
+    model.add(layers.Conv2DTranspose(16, 5, strides=(2, 2), padding='same', activation='relu'))
+    model.add(layers.Conv2DTranspose(16, 5, strides=(2, 2), padding='same', activation='relu'))
+    # Activation layer
+    model.add(layers.Conv2D(1, 1, strides=(1, 1), padding='same', activation='sigmoid'))
+    # Compile loss and optimizer, and printing the network structure summary
+    model.summary()
+    model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['acc'])
+
+    return model
+
+
 def setup_model_and_tensorboard(x_train):
     """
     Sets up or loads a model
@@ -203,17 +214,6 @@ def setup_model_and_tensorboard(x_train):
                                            save_weights_only=False, mode='auto', period=1)
 
     return model, [tensorboard_callback, checkpoint]
-
-
-def split_data(x_data, y_data):
-    """
-    Splits data into training and validation sets
-    
-    :return:
-    """
-    x_train, x_val, y_train, y_val = sklearn.model_selection.train_test_split(x_data, y_data, test_size=0.1,
-                                                                              random_state=42)
-    return np.array(x_train), np.array(x_val), np.array(y_train), np.array(y_val)
 
 
 def main():
