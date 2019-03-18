@@ -87,7 +87,7 @@ def fetch_data(debug_mode=config['testing/debug'].getboolean('debug_mode'), test
     if test is True:
         image_names = filenames('data', test=True)
         x = []
-        for i, img_path in enumerate(image_names):
+        for i, img_path in tqdm(enumerate(image_names)):
 
             # Read image
             img = misc.imread(img_path)
@@ -119,7 +119,7 @@ def fetch_data(debug_mode=config['testing/debug'].getboolean('debug_mode'), test
             img = cv2.resize(img, (int(config['data_processing']['x_pic']), int(config['data_processing']['y_pic'])))
             seg = cv2.resize(seg, (int(config['data_processing']['x_pic']), int(config['data_processing']['y_pic'])))
             img = img.astype(float) / 255
-            seg = seg.astype(int)
+            seg = seg.astype(float)
             seg = np.array((seg - np.min(seg)) / (np.max(seg) - np.min(seg)))
             seg = seg[:, :, 0, None]
 
@@ -232,7 +232,7 @@ def main():
 
         # Train model
         models.Sequential.fit(model, x_train, y_train, batch_size=8,
-                              epochs=350, verbose=1, validation_data=(x_val, y_val),
+                              epochs=500, verbose=1, validation_data=(x_val, y_val),
                               shuffle=True, callbacks=callbacks_model
                               )
 
@@ -252,7 +252,8 @@ def main():
             model.summary()
 
             for img, seg in zip(x_val, y_val):
-                img = np.reshape(img, (1, 224, 224, 3))
+                img = np.reshape(img, (1, int(config['data_processing']['x_pic']),
+                                       int(config['data_processing']['y_pic']), 3))
                 prediction = models.Sequential.predict(model, img)
                 fig, (ax1, ax2, ax3) = plt.subplots(1, 3)
                 ax1.imshow(np.squeeze(prediction))
@@ -266,15 +267,32 @@ def main():
             # Load best weights from models
             model = models.load_model('models/' + config['predictions']['weights'])
             model.summary()
-            for i, img in enumerate(x_test):
-                img = np.reshape(img, (1, 224, 224, 3))
+
+            image_names = filenames('data', test=True)
+            i = 0
+            for img, names in zip(x_test, image_names):
+                img = np.reshape(img, (1, int(config['data_processing']['x_pic']),
+                                       int(config['data_processing']['y_pic']), 3))
                 prediction = models.Sequential.predict(model, img)
+                prediction = np.where(prediction > 0.80, np.ones_like(prediction),
+                                      np.zeros_like(prediction))
                 fig, (ax1, ax2) = plt.subplots(1, 2)
                 ax1.imshow(np.squeeze(prediction))
                 ax2.imshow(np.squeeze(img))
-                fig.savefig(('{}/prediction_' + str(i) + '.png').format('D:/Masteroppgave/Master-thesis/predictions'))
-                plt.show()
+                fig.savefig(('{}/' + str(names[20:-4]) +
+                             '-ground_truth.png').format('D:/Masteroppgave/Master-thesis/predictions'))
+                plt.show(block=False)
+                plt.pause(0.5)
                 i += 1
+                plt.close()
+
+                prediction = np.reshape(prediction, (int(config['data_processing']['x_pic']),
+                                                     int(config['data_processing']['y_pic']), 1)) * 255.0
+                dump = np.zeros([np.shape(prediction)[0], np.shape(prediction)[1], 2])
+                prediction = np.concatenate((prediction, dump), 2)
+                misc.imsave(('{}/' + str(names[20:-4]) +
+                             '-ground_truth.png').format('D:/Masteroppgave/Master-thesis/predictions/gt'),
+                            prediction)
 
 
 if __name__ == '__main__':
