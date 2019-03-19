@@ -35,8 +35,10 @@ def preprocess(image, segmentation):
     if config['data_processing'].getboolean('rand_crop') is True:
         # Random cropping
         box = np.ones([1, 1, 4])
-        boxes_size = [int(config['data_processing']['y_min']), int(config['data_processing']['x_min']),
-                      int(config['data_processing']['x_pic']) - 1, int(config['data_processing']['y_pic']) - 1]
+        boxes_size = [int(config['data_processing']['y_min']),
+                      int(config['data_processing']['x_min']),
+                      int(config['data_processing']['x_pic']) - 1,
+                      int(config['data_processing']['y_pic']) - 1]
         for i in range(4):
             box[:, :, i] = boxes_size[i] / int(config['data_processing']['x_pic'])
 
@@ -50,11 +52,14 @@ def preprocess(image, segmentation):
         image = tf.slice(image, begin, size)
         image = tf.image.resize_images(image, [int(config['data_processing']['x_pic']),
                                                int(config['data_processing']['y_pic'])])
-        image.set_shape([int(config['data_processing']['x_pic']), int(config['data_processing']['y_pic']), 3])
+        image.set_shape([int(config['data_processing']['x_pic']),
+                         int(config['data_processing']['y_pic']), 3])
 
         segmentation = tf.slice(segmentation, begin, size)
-        segmentation = tf.image.resize_images(segmentation, [int(config['data_processing']['x_pic']), int(config['data_processing']['y_pic'])])
-        segmentation.set_shape([int(config['data_processing']['x_pic']), int(config['data_processing']['y_pic']), 1])
+        segmentation = tf.image.resize_images(segmentation, [int(config['data_processing']['x_pic']),
+                                                             int(config['data_processing']['y_pic'])])
+        segmentation.set_shape([int(config['data_processing']['x_pic']),
+                                int(config['data_processing']['y_pic']), 1])
         return image, segmentation
 
     elif config['data_processing'].getboolean('flip_up_down') is True:
@@ -93,7 +98,8 @@ def fetch_data(debug_mode=config['testing/debug'].getboolean('debug_mode'), test
             img = misc.imread(img_path)
 
             # Preprocess image
-            img = cv2.resize(img, (int(config['data_processing']['x_pic']), int(config['data_processing']['y_pic'])))
+            img = cv2.resize(img, (int(config['data_processing']['x_pic']),
+                                   int(config['data_processing']['y_pic'])))
             img = img.astype(float) / 255
 
             x.append(img)
@@ -116,8 +122,10 @@ def fetch_data(debug_mode=config['testing/debug'].getboolean('debug_mode'), test
 
             # Preprocess image
             # Set images size to a constant
-            img = cv2.resize(img, (int(config['data_processing']['x_pic']), int(config['data_processing']['y_pic'])))
-            seg = cv2.resize(seg, (int(config['data_processing']['x_pic']), int(config['data_processing']['y_pic'])))
+            img = cv2.resize(img, (int(config['data_processing']['x_pic']),
+                                   int(config['data_processing']['y_pic'])))
+            seg = cv2.resize(seg, (int(config['data_processing']['x_pic']),
+                                   int(config['data_processing']['y_pic'])))
             img = img.astype(float) / 255
             seg = seg.astype(float)
             seg = np.array((seg - np.min(seg)) / (np.max(seg) - np.min(seg)))
@@ -163,8 +171,7 @@ def split_data(x_data, y_data):
 
     :return:
     """
-    x_train, x_val, y_train, y_val = sklearn.model_selection.train_test_split(x_data, y_data, test_size=0.1,
-                                                                              random_state=42)
+    x_train, x_val, y_train, y_val = sklearn.model_selection.train_test_split(x_data, y_data, test_size=float(config['testing/debug']['test_size']), random_state=42)
     return np.array(x_train), np.array(x_val), np.array(y_train), np.array(y_val)
 
 
