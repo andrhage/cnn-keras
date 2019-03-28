@@ -283,9 +283,16 @@ def main():
                 prediction = models.Sequential.predict(model, img)
                 prediction = np.where(prediction > 0.80, np.ones_like(prediction),
                                       np.zeros_like(prediction))
+                prediction = np.squeeze(prediction)
+                kernel = np.ones((3, 3), np.uint8)
+                prediction = cv2.erode(prediction, kernel, iterations=1)
+                prediction = cv2.dilate(prediction, kernel, iterations=1)
+                ret, prediction = cv2.connectedComponents(np.uint8(prediction))
+                #prediction = cv2.fillConvexPoly(prediction, points=None, color=0)
                 fig, (ax1, ax2) = plt.subplots(1, 2)
-                ax1.imshow(np.squeeze(prediction))
+                #ax1.imshow(np.squeeze(prediction))
                 ax2.imshow(np.squeeze(img))
+                ax1.imshow(prediction)
                 fig.savefig(('{}/' + str(names[20:-4]) +
                              '-ground_truth.png').format('D:/Masteroppgave/Master-thesis/predictions'))
                 plt.show(block=False)
