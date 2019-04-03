@@ -101,6 +101,7 @@ def fetch_data(debug_mode=config['testing/debug'].getboolean('debug_mode'), test
             img = cv2.resize(img, (int(config['data_processing']['x_pic']),
                                    int(config['data_processing']['y_pic'])))
             img = img.astype(float) / 255
+            # Data augmentation under here:
 
             x.append(img)
 
@@ -152,15 +153,15 @@ def filenames(dataset_folder, test=None):
     """
     if test is True:
         sub_dataset = 'testing'
-        image_names = glob.glob(os.path.join(dataset_folder, sub_dataset, 'images', '*-47-*.png'),
+        image_names = glob.glob(os.path.join(dataset_folder, sub_dataset, 'images', '**.png'),
                                 recursive=True)
         return image_names
     else:
 
         sub_dataset = 'training'
-        segmentation_names = glob.glob(os.path.join(dataset_folder, sub_dataset, 'gt', '*-ground_truth*.png'),
+        segmentation_names = glob.glob(os.path.join(dataset_folder, sub_dataset, 'gt', '**.png'),
                                            recursive=True)
-        image_names = glob.glob(os.path.join(dataset_folder, sub_dataset, 'images', '*-47-*.png'),
+        image_names = glob.glob(os.path.join(dataset_folder, sub_dataset, 'images', '**.png'),
                                            recursive=True)
         return image_names, segmentation_names
 
@@ -239,7 +240,8 @@ def main():
 
         # Train model
         models.Sequential.fit(model, x_train, y_train, batch_size=8,
-                              epochs=500, verbose=1, validation_data=(x_val, y_val),
+                              epochs=int(config['testing/debug']['epochs']),
+                              verbose=1, validation_data=(x_val, y_val),
                               shuffle=True, callbacks=callbacks_model
                               )
 
