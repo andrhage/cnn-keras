@@ -1,5 +1,12 @@
-import cv2
+import glob
+import os
 
-img = cv2.imread('D:/Masteroppgave/Andreas/data/training/gt/2017-05-09-13-26-47-00001-ground_truth.png')
-print(img.shape)
-print(img[:,:,:,None].shape)
+os.makedirs('gt')
+for filename in glob.iglob('Sekvens2_png/**/*label.png', recursive=True):
+    print(filename)
+    file = filename.split('/')[2]
+    folder = filename.split('/')[1]
+    print(file)
+    print(folder)
+    os.replace(filename, 'gt/' + folder + '_gt' + '.png')
+
