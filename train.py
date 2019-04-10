@@ -3,7 +3,7 @@ from __future__ import print_function
 import glob
 import os
 import numpy as np
-
+from scipy.ndimage import morphology
 from scipy import misc
 import sklearn.model_selection
 import sklearn
@@ -83,7 +83,7 @@ def preprocess(image, segmentation):
         return image, segmentation
 
 
-def fetch_data(debug_mode=config['testing/debug'].getboolean('debug_mode'), test=None):
+def fetch_data(debug_mode=config['train/test/debug'].getboolean('debug_mode'), test=None):
     """
     Reading the images and prepares them for training/testing before appending them in a list
 
@@ -131,6 +131,7 @@ def fetch_data(debug_mode=config['testing/debug'].getboolean('debug_mode'), test
             seg = seg.astype(float)
             seg = np.array((seg - np.min(seg)) / (np.max(seg) - np.min(seg)))
             seg = seg[:, :, 0, None]
+            #seg = seg[:, :, 2, None]
 
             x.append(img)
             y.append(seg)
@@ -172,7 +173,11 @@ def split_data(x_data, y_data):
 
     :return:
     """
-    x_train, x_val, y_train, y_val = sklearn.model_selection.train_test_split(x_data, y_data, test_size=float(config['testing/debug']['test_size']), random_state=42)
+    x_train, x_val, y_train, y_val = \
+        sklearn.model_selection.train_test_split(x_data,
+                                                 y_data,
+                                                 test_size=float(config['train/test/debug']['test_size']),
+                                                 random_state=42)
     return np.array(x_train), np.array(x_val), np.array(y_train), np.array(y_val)
 
 
@@ -218,7 +223,7 @@ def setup_model_and_tensorboard(x_train):
                                                  update_freq='epoch'
                                                  )
     checkpoint = callbacks.ModelCheckpoint('models/weights.{epoch:02d}-{val_acc:.2f}.hdf5', monitor='val_acc',
-                                           verbose=1, save_best_only=True,
+                                           verbose=1, save_best_only=config['train/test/debug'].getboolean('save_best'),
                                            save_weights_only=False, mode='auto', period=1)
 
     return model, [tensorboard_callback, checkpoint]
@@ -226,11 +231,11 @@ def setup_model_and_tensorboard(x_train):
 
 def main():
     # 'training' or 'testing' mode
-    mode = config['testing/debug']['mode']
+    mode = config['train/test/debug']['mode']
 
     if mode == 'training':
         # Fetch data set
-        x_data, y_data = fetch_data(debug_mode=config['testing/debug'].getboolean('debug_mode'))
+        x_data, y_data = fetch_data(debug_mode=config['train/test/debug'].getboolean('debug_mode'))
 
         # Split data
         x_train, x_val, y_train, y_val = split_data(x_data, y_data)
@@ -239,8 +244,8 @@ def main():
         model, callbacks_model = setup_model_and_tensorboard(x_train)
 
         # Train model
-        models.Sequential.fit(model, x_train, y_train, batch_size=8,
-                              epochs=int(config['testing/debug']['epochs']),
+        models.Sequential.fit(model, x_train, y_train, batch_size=10,
+                              epochs=int(config['train/test/debug']['epochs']),
                               verbose=1, validation_data=(x_val, y_val),
                               shuffle=True, callbacks=callbacks_model
                               )
@@ -251,7 +256,7 @@ def main():
 
         if label is True:
             # Fetch data set
-            x_data, y_data = fetch_data(debug_mode=config['testing/debug'].getboolean('debug_mode'))
+            x_data, y_data = fetch_data(debug_mode=config['train/test/debug'].getboolean('debug_mode'))
 
             # Split data
             x_train, x_val, y_train, y_val = split_data(x_data, y_data)
@@ -271,7 +276,7 @@ def main():
                 plt.show()
         else:
             # Fetch test data set
-            x_test = fetch_data(debug_mode=config['testing/debug'].getboolean('debug_mode'), test=True)
+            x_test = fetch_data(debug_mode=config['train/test/debug'].getboolean('debug_mode'), test=True)
 
             # Load best weights from models
             model = models.load_model('models/' + config['predictions']['weights'])
@@ -283,20 +288,22 @@ def main():
                 img = np.reshape(img, (1, int(config['data_processing']['x_pic']),
                                        int(config['data_processing']['y_pic']), 3))
                 prediction = models.Sequential.predict(model, img)
-                prediction = np.where(prediction > 0.80, np.ones_like(prediction),
+                prediction = np.where(prediction > 0.65, np.ones_like(prediction),
                                       np.zeros_like(prediction))
                 prediction = np.squeeze(prediction)
+                #test = morphology.binary_fill_holes(prediction.astype(int),
+                  #                                  structure=np.ones((5, 5)), output=np.ones((224, 224))).astype(int)
                 kernel = np.ones((3, 3), np.uint8)
                 prediction = cv2.erode(prediction, kernel, iterations=1)
                 prediction = cv2.dilate(prediction, kernel, iterations=1)
-                ret, prediction = cv2.connectedComponents(np.uint8(prediction))
+                #ret, prediction = cv2.connectedComponents(np.uint8(prediction))
                 #prediction = cv2.fillConvexPoly(prediction, points=None, color=0)
                 fig, (ax1, ax2) = plt.subplots(1, 2)
                 #ax1.imshow(np.squeeze(prediction))
                 ax2.imshow(np.squeeze(img))
                 ax1.imshow(prediction)
                 fig.savefig(('{}/' + str(names[20:-4]) +
-                             '-ground_truth.png').format('D:/Masteroppgave/Master-thesis/predictions'))
+                             '_img_gt.png').format('D:/Masteroppgave/Master-thesis/predictions'))
                 plt.show(block=False)
                 plt.pause(0.5)
                 i += 1
@@ -307,8 +314,16 @@ def main():
                 dump = np.zeros([np.shape(prediction)[0], np.shape(prediction)[1], 2])
                 prediction = np.concatenate((prediction, dump), 2)
                 misc.imsave(('{}/' + str(names[20:-4]) +
-                             '-ground_truth.png').format('D:/Masteroppgave/Master-thesis/predictions/gt'),
+                             '_gt.png').format('D:/Masteroppgave/Master-thesis/predictions/gt'),
                             prediction)
+
+                # test = np.reshape(test, (int(config['data_processing']['x_pic']),
+                #                                      int(config['data_processing']['y_pic']), 1)) * 255.0
+                # dump = np.zeros([np.shape(test)[0], np.shape(test)[1], 2])
+                # test = np.concatenate((test, dump), 2)
+                # misc.imsave(('{}/' + str(names[20:-4]) +
+                #              'testing_gt.png').format('D:/Masteroppgave/Master-thesis/predictions/gt'),
+                #             test)
 
 
 if __name__ == '__main__':
