@@ -3,7 +3,6 @@ from __future__ import print_function
 import glob
 import os
 import numpy as np
-from scipy.ndimage import morphology
 from scipy import misc
 import sklearn.model_selection
 import sklearn
@@ -15,9 +14,8 @@ from keras import callbacks
 from tqdm import tqdm
 import configparser
 import cv2
-from imutils import contours
 from skimage import measure
-import imutils
+from scipy import ndimage as ndi
 
 
 config = configparser.ConfigParser()
@@ -283,23 +281,30 @@ def main():
 
             # Load best weights from models
             model = models.load_model('models/' + config['predictions']['weights'])
+            # Plots the layers in terminal summary
             model.summary()
 
+            # Grab all the image names from each folder
             image_names = filenames('data', test=True)
+
             i = 0
+            # Connect each image with its name and run through them one by one
             for img, names in zip(x_test, image_names):
                 img = np.reshape(img, (1, int(config['data_processing']['x_pic']),
                                        int(config['data_processing']['y_pic']), 3))
+                # Predicts the road
                 prediction = models.Sequential.predict(model, img)
+                # Filter out values with less certainty than 65 %
                 prediction = np.where(prediction > 0.65, np.ones_like(prediction),
                                       np.zeros_like(prediction))
                 prediction = np.squeeze(prediction)
-                #test = morphology.binary_fill_holes(prediction.astype(int),
-                  #                                  structure=np.ones((5, 5)), output=np.ones((224, 224))).astype(int)
+                # Processing with morphological operations
                 kernel = np.ones((3, 3), np.uint8)
                 prediction = cv2.erode(prediction, kernel, iterations=1)
                 prediction = cv2.dilate(prediction, kernel, iterations=1)
-                # The cca is based on this tutorial: https://www.pyimagesearch.com/2016/10/31/detecting-multiple-bright-spots-in-an-image-with-python-and-opencv/
+
+                # The cca is based on this tutorial:
+                # https://www.pyimagesearch.com/2016/10/31/detecting-multiple-bright-spots-in-an-image-with-python-and-opencv/
                 cca = measure.label(prediction, connectivity=None, background=0)
                 mask = np.zeros(prediction.shape, dtype="uint8")
                 for labels in np.unique(cca):
@@ -308,26 +313,14 @@ def main():
                     labelmask = np.zeros(prediction.shape, dtype="uint8")
                     labelmask[cca == labels] = 255
                     count_pixels = cv2.countNonZero(labelmask)
-                    if count_pixels > 10000:
+                    if count_pixels > int(config['predictions']['threshold']):
                         mask = cv2.add(mask, labelmask)
-                # cnts = cv2.findContours(mask.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-                # cnts = imutils.grab_contours(cnts)
-                # cnts = contours.sort_contours(cnts)[0]
-                #
-                # for i, c in enumerate(cnts):
-                #     (x, y, w, h) = cv2.boundingRect(c)
-                #     ((cX, cY), radius) = cv2.minEnclosingCircle(c)
-                #     cv2.circle(prediction, (int(cX), int(cY)), int(radius), (0, 0, 255), 3)
-                #     cv2.putText(prediction, "#{}".format(i + 1), (x, y - 15),
-                #                              cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 0, 255), 2)
+                        mask = ndi.binary_fill_holes(mask)
                 # ------------------------------------------------------------------------------------------------------
-
-                #ret, prediction = cv2.connectedComponents(np.uint8(prediction))
-                #prediction = cv2.fillConvexPoly(prediction, points=None, color=0)
                 fig, (ax1, ax2) = plt.subplots(1, 2)
-                #ax1.imshow(np.squeeze(prediction))
+                # ax1.imshow(np.squeeze(prediction))
                 ax2.imshow(np.squeeze(img))
-                #ax1.imshow(prediction)
+                # ax1.imshow(prediction)
                 ax1.imshow(mask)
                 fig.savefig(('{}/' + str(names[20:-4]) +
                              '_img_gt.png').format('D:/Masteroppgave/Master-thesis/predictions'))
@@ -343,14 +336,6 @@ def main():
                 misc.imsave(('{}/' + str(names[20:-4]) +
                              '_gt.png').format('D:/Masteroppgave/Master-thesis/predictions/gt'),
                             prediction)
-
-                # test = np.reshape(test, (int(config['data_processing']['x_pic']),
-                #                                      int(config['data_processing']['y_pic']), 1)) * 255.0
-                # dump = np.zeros([np.shape(test)[0], np.shape(test)[1], 2])
-                # test = np.concatenate((test, dump), 2)
-                # misc.imsave(('{}/' + str(names[20:-4]) +
-                #              'testing_gt.png').format('D:/Masteroppgave/Master-thesis/predictions/gt'),
-                #             test)
 
 
 if __name__ == '__main__':
