@@ -15,6 +15,9 @@ from keras import callbacks
 from tqdm import tqdm
 import configparser
 import cv2
+from imutils import contours
+from skimage import measure
+import imutils
 
 
 config = configparser.ConfigParser()
@@ -296,12 +299,36 @@ def main():
                 kernel = np.ones((3, 3), np.uint8)
                 prediction = cv2.erode(prediction, kernel, iterations=1)
                 prediction = cv2.dilate(prediction, kernel, iterations=1)
+                # The cca is based on this tutorial: https://www.pyimagesearch.com/2016/10/31/detecting-multiple-bright-spots-in-an-image-with-python-and-opencv/
+                cca = measure.label(prediction, connectivity=None, background=0)
+                mask = np.zeros(prediction.shape, dtype="uint8")
+                for labels in np.unique(cca):
+                    if labels == 0:
+                        continue
+                    labelmask = np.zeros(prediction.shape, dtype="uint8")
+                    labelmask[cca == labels] = 255
+                    count_pixels = cv2.countNonZero(labelmask)
+                    if count_pixels > 10000:
+                        mask = cv2.add(mask, labelmask)
+                # cnts = cv2.findContours(mask.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                # cnts = imutils.grab_contours(cnts)
+                # cnts = contours.sort_contours(cnts)[0]
+                #
+                # for i, c in enumerate(cnts):
+                #     (x, y, w, h) = cv2.boundingRect(c)
+                #     ((cX, cY), radius) = cv2.minEnclosingCircle(c)
+                #     cv2.circle(prediction, (int(cX), int(cY)), int(radius), (0, 0, 255), 3)
+                #     cv2.putText(prediction, "#{}".format(i + 1), (x, y - 15),
+                #                              cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 0, 255), 2)
+                # ------------------------------------------------------------------------------------------------------
+
                 #ret, prediction = cv2.connectedComponents(np.uint8(prediction))
                 #prediction = cv2.fillConvexPoly(prediction, points=None, color=0)
                 fig, (ax1, ax2) = plt.subplots(1, 2)
                 #ax1.imshow(np.squeeze(prediction))
                 ax2.imshow(np.squeeze(img))
-                ax1.imshow(prediction)
+                #ax1.imshow(prediction)
+                ax1.imshow(mask)
                 fig.savefig(('{}/' + str(names[20:-4]) +
                              '_img_gt.png').format('D:/Masteroppgave/Master-thesis/predictions'))
                 plt.show(block=False)
