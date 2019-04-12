@@ -16,15 +16,13 @@ import configparser
 import cv2
 from skimage import measure
 from scipy import ndimage as ndi
-import pdb
 from keras.models import Model, load_model
 from keras.layers import Input
-from keras.layers.core import Dropout, Lambda
+from keras.layers.core import Dropout
 from keras.layers.convolutional import Conv2D, Conv2DTranspose
 from keras.layers.pooling import MaxPooling2D
 from keras.layers.merge import concatenate
-from keras.callbacks import EarlyStopping, ModelCheckpoint
-from keras import backend as K
+from keras.callbacks import EarlyStopping
 
 
 config = configparser.ConfigParser()
@@ -139,10 +137,14 @@ def fetch_data(debug_mode=config['train/test/debug'].getboolean('debug_mode'), t
                                    int(config['data_processing']['y_pic'])))
             img = img.astype(float) / 255
             seg = seg.astype(float)
-            #pdb.set_trace()
             seg = np.array((seg - np.min(seg)) / (np.max(seg) - np.min(seg)))
-            seg = seg[:, :, 0, None]
-            # seg = seg[:, :, 2, None]
+
+            if config['data_processing'].getboolean('kitti') is True:
+                # Gt with pink/blue road
+                seg = seg[:, :, 2, None]
+            else:
+                # Gt with red road
+                seg = seg[:, :, 0, None]
 
             x.append(img)
             y.append(seg)
@@ -222,7 +224,7 @@ def keras_model_sequential(input_shape):
 
 def keras_model_residual():
     """
-
+    Based on "https://www.kaggle.com/keegil/keras-u-net-starter-lb-0-277"
     :param input_shape:
     :return:
     """
@@ -317,7 +319,7 @@ def setup_model_and_tensorboard(x_train):
                                                      embeddings_metadata=None, embeddings_data=None,
                                                      update_freq='epoch'
                                                      )
-        checkpoint_res = callbacks.ModelCheckpoint('models/weights.{epoch:02d}.hdf5',
+        checkpoint_res = callbacks.ModelCheckpoint('models/weights.{epoch:02d}-{val_acc:.2f}.hdf5',
                                                    verbose=1,
                                                save_best_only=config['train/test/debug'].getboolean('save_best'),
                                                save_weights_only=False, mode='auto', period=1)
@@ -353,9 +355,9 @@ def main():
 
             # Train model
             model_res.fit(x_train, y_train, batch_size=10,
-                      epochs=int(config['train/test/debug']['epochs']),
-                      shuffle=True, validation_data=(x_val, y_val),
-                      callbacks=callbacks_model_res)
+                          epochs=int(config['train/test/debug']['epochs']),
+                          shuffle=True, validation_data=(x_val, y_val),
+                          callbacks=callbacks_model_res)
 
     elif mode == 'testing':
 
@@ -391,13 +393,12 @@ def main():
             i = 0
             # Connect each image with its name and run through them one by one
             for img, names in zip(x_test, image_names):
+
                 img = np.reshape(img, (1, int(config['data_processing']['x_pic']),
                                        int(config['data_processing']['y_pic']), 3))
                 if config['Network'].getboolean('sequential') is True:
                     # Load best weights from models
                     model = models.load_model('models/' + config['predictions']['weights'])
-                    # Plots the layers in terminal summary
-                    model.summary()
                     # Predicts the road
                     prediction = models.Sequential.predict(model, img)
                 elif config['Network'].getboolean('residual') is True:
@@ -425,27 +426,48 @@ def main():
                     count_pixels = cv2.countNonZero(labelmask)
                     if count_pixels > int(config['predictions']['threshold']):
                         mask = cv2.add(mask, labelmask)
-                        mask = ndi.binary_fill_holes(mask)
+                        img_finished = ndi.binary_fill_holes(mask)
                 # ------------------------------------------------------------------------------------------------------
                 fig, (ax1, ax2) = plt.subplots(1, 2)
                 # ax1.imshow(np.squeeze(prediction))
                 ax2.imshow(np.squeeze(img))
-                ax1.imshow(prediction)
-                # ax1.imshow(mask)
-                fig.savefig(('{}/' + str(names[20:-4]) +
-                             '_img_gt.png').format('D:/Masteroppgave/Master-thesis/predictions'))
-                plt.show(block=False)
-                plt.pause(0.5)
-                i += 1
-                plt.close()
 
-                prediction = np.reshape(prediction, (int(config['data_processing']['x_pic']),
-                                                     int(config['data_processing']['y_pic']), 1)) * 255.0
-                dump = np.zeros([np.shape(prediction)[0], np.shape(prediction)[1], 2])
-                prediction = np.concatenate((prediction, dump), 2)
-                misc.imsave(('{}/' + str(names[20:-4]) +
-                             '_gt.png').format('D:/Masteroppgave/Master-thesis/predictions/gt'),
-                            prediction)
+                # With or without cca
+                if config['predictions'].getboolean('cca') is True:
+                    ax1.imshow(img_finished)
+                    fig.savefig(('{}/' + str(names[20:-4]) +
+                                 '_img_gt.png').format('D:/Masteroppgave/Master-thesis/predictions'))
+                    if config['predictions'].getboolean('plots') is True:
+                        plt.show(block=False)
+                        plt.pause(0.5)
+                    i += 1
+                    plt.close()
+
+                    img_finished = np.reshape(img_finished, (int(config['data_processing']['x_pic']),
+                                                             int(config['data_processing']['y_pic']), 1)) * 255.0
+                    dump = np.zeros([np.shape(img_finished)[0], np.shape(img_finished)[1], 2])
+                    img_finished = np.concatenate((img_finished, dump), 2)
+                    misc.imsave(('{}/' + str(names[20:-4]) +
+                                 '_gt.png').format('D:/Masteroppgave/Master-thesis/predictions/gt'),
+                                img_finished)
+                else:
+                    ax1.imshow(prediction)
+
+                    fig.savefig(('{}/' + str(names[20:-4]) +
+                                 '_img_gt.png').format('D:/Masteroppgave/Master-thesis/predictions'))
+                    if config['predictions'].getboolean('plots') is True:
+                        plt.show(block=False)
+                        plt.pause(0.5)
+                    i += 1
+                    plt.close()
+
+                    prediction = np.reshape(prediction, (int(config['data_processing']['x_pic']),
+                                                         int(config['data_processing']['y_pic']), 1)) * 255.0
+                    dump = np.zeros([np.shape(prediction)[0], np.shape(prediction)[1], 2])
+                    prediction = np.concatenate((prediction, dump), 2)
+                    misc.imsave(('{}/' + str(names[20:-4]) +
+                                 '_gt.png').format('D:/Masteroppgave/Master-thesis/predictions/gt'),
+                                prediction)
 
 
 if __name__ == '__main__':

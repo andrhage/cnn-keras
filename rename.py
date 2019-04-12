@@ -9,4 +9,3 @@ for filename in glob.iglob('Sekvens2_png/**/*label.png', recursive=True):
     print(file)
     print(folder)
     os.replace(filename, 'gt/' + folder + '_gt' + '.png')
-
