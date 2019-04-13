@@ -11,6 +11,7 @@ import tensorflow as tf
 from keras import models
 from keras import layers
 from keras import callbacks
+from keras import backend
 from tqdm import tqdm
 import configparser
 import cv2
@@ -392,26 +393,35 @@ def main():
 
             i = 0
             # Connect each image with its name and run through them one by one
+            if config['Network'].getboolean('sequential') is True:
+                # Load best weights from models
+                model = models.load_model('models/' + config['predictions']['weights'])
+
+            elif config['Network'].getboolean('residual') is True:
+                model = load_model('models/' + config['predictions']['weights'])
+
             for img, names in zip(x_test, image_names):
 
                 img = np.reshape(img, (1, int(config['data_processing']['x_pic']),
                                        int(config['data_processing']['y_pic']), 3))
-                if config['Network'].getboolean('sequential') is True:
-                    # Load best weights from models
-                    model = models.load_model('models/' + config['predictions']['weights'])
-                    # Predicts the road
-                    prediction = models.Sequential.predict(model, img)
-                elif config['Network'].getboolean('residual') is True:
-                    model = load_model('models/' + config['predictions']['weights'])
-                    # Predicts the road
-                    prediction = model.predict(img)
+
+                # if config['Network'].getboolean('sequential') is True:
+                #     # Load best weights from models
+                #     #model = models.load_model('models/' + config['predictions']['weights'])
+                #     # Predicts the road
+                #     prediction = models.Sequential.predict(model, img)
+                # elif config['Network'].getboolean('residual') is True:
+                #     #model = load_model('models/' + config['predictions']['weights'])
+
+                #     # Predicts the road
+                prediction = model.predict(img)
                 # Filter out values with less certainty than 65 %
                 prediction = np.where(prediction > 0.65, np.ones_like(prediction),
                                       np.zeros_like(prediction))
                 prediction = np.squeeze(prediction)
                 # Processing with morphological operations
                 kernel = np.ones((3, 3), np.uint8)
-                prediction = cv2.erode(prediction, kernel, iterations=4)
+                prediction = cv2.erode(prediction, kernel, iterations=3)
                 prediction = cv2.dilate(prediction, kernel, iterations=2)
 
                 # The cca is based on this tutorial:
@@ -426,35 +436,35 @@ def main():
                     count_pixels = cv2.countNonZero(labelmask)
                     if count_pixels > int(config['predictions']['threshold']):
                         mask = cv2.add(mask, labelmask)
-                        img_finished = ndi.binary_fill_holes(mask)
-                # ------------------------------------------------------------------------------------------------------
+                        mask = ndi.binary_fill_holes(mask)
+                # ---------------------------------------------------------------------------------------------------------------
                 fig, (ax1, ax2) = plt.subplots(1, 2)
                 # ax1.imshow(np.squeeze(prediction))
                 ax2.imshow(np.squeeze(img))
 
                 # With or without cca
                 if config['predictions'].getboolean('cca') is True:
-                    ax1.imshow(img_finished)
+                    ax1.imshow(mask)
                     fig.savefig(('{}/' + str(names[20:-4]) +
-                                 '_img_gt.png').format('D:/Masteroppgave/Master-thesis/predictions'))
+                                 '.png').format('D:/Masteroppgave/Master-thesis/predictions'))
                     if config['predictions'].getboolean('plots') is True:
                         plt.show(block=False)
                         plt.pause(0.5)
                     i += 1
                     plt.close()
 
-                    img_finished = np.reshape(img_finished, (int(config['data_processing']['x_pic']),
+                    mask = np.reshape(mask, (int(config['data_processing']['x_pic']),
                                                              int(config['data_processing']['y_pic']), 1)) * 255.0
-                    dump = np.zeros([np.shape(img_finished)[0], np.shape(img_finished)[1], 2])
-                    img_finished = np.concatenate((img_finished, dump), 2)
+                    dump = np.zeros([np.shape(mask)[0], np.shape(mask)[1], 2])
+                    mask = np.concatenate((mask, dump), 2)
                     misc.imsave(('{}/' + str(names[20:-4]) +
-                                 '_gt.png').format('D:/Masteroppgave/Master-thesis/predictions/gt'),
-                                img_finished)
+                                 '.png').format('D:/Masteroppgave/Master-thesis/predictions/gt'),
+                                mask)
                 else:
                     ax1.imshow(prediction)
 
                     fig.savefig(('{}/' + str(names[20:-4]) +
-                                 '_img_gt.png').format('D:/Masteroppgave/Master-thesis/predictions'))
+                                 '.png').format('D:/Masteroppgave/Master-thesis/predictions'))
                     if config['predictions'].getboolean('plots') is True:
                         plt.show(block=False)
                         plt.pause(0.5)
@@ -466,8 +476,9 @@ def main():
                     dump = np.zeros([np.shape(prediction)[0], np.shape(prediction)[1], 2])
                     prediction = np.concatenate((prediction, dump), 2)
                     misc.imsave(('{}/' + str(names[20:-4]) +
-                                 '_gt.png').format('D:/Masteroppgave/Master-thesis/predictions/gt'),
+                                 '.png').format('D:/Masteroppgave/Master-thesis/predictions/gt'),
                                 prediction)
+                #backend.clear_session()
 
 
 if __name__ == '__main__':
