@@ -24,7 +24,7 @@ from keras.layers.convolutional import Conv2D, Conv2DTranspose
 from keras.layers.pooling import MaxPooling2D
 from keras.layers.merge import concatenate
 from keras.callbacks import EarlyStopping
-
+from keras.preprocessing.image import ImageDataGenerator
 
 config = configparser.ConfigParser()
 config.read("config.ini")
@@ -340,25 +340,47 @@ def main():
         # Split data
         x_train, x_val, y_train, y_val = split_data(x_data, y_data)
 
-        if config['Network'].getboolean('sequential') is True:
+        # Choosing whether to use data augmentation or not
+        if config['train/test/debug'].getboolean('augmentation') is True:
+
             # Create model
             model, callbacks_model = setup_model_and_tensorboard(x_train)
 
-            # Train model
-            models.Sequential.fit(model, x_train, y_train, batch_size=10,
-                                  epochs=int(config['train/test/debug']['epochs']),
-                                  verbose=1, validation_data=(x_val, y_val),
-                                  shuffle=True, callbacks=callbacks_model
-                                  )
-        elif config['Network'].getboolean('residual') is True:
-            # Create model
-            model_res, callbacks_model_res = setup_model_and_tensorboard(x_train)
+            data_generator = ImageDataGenerator(
+                featurewise_center=True,
+                featurewise_std_normalization=True,
+                rotation_range=20,
+                width_shift_range=0.2,
+                height_shift_range=0.2,
+                horizontal_flip=True)
 
-            # Train model
-            model_res.fit(x_train, y_train, batch_size=10,
-                          epochs=int(config['train/test/debug']['epochs']),
-                          shuffle=True, validation_data=(x_val, y_val),
-                          callbacks=callbacks_model_res)
+            data_generator.fit(x_train)
+
+            model.fit_generator(data_generator.flow(x_train, y_train, batch_size=10),
+                                steps_per_epoch=len(x_train) / 10, epochs=int(config['train/test/debug']['epochs']),
+                                validation_data=(x_val, y_val), shuffle=True, verbose=1, callbacks=callbacks_model
+                                )
+
+        else:
+            if config['Network'].getboolean('sequential') is True:
+                # Create model
+                model, callbacks_model = setup_model_and_tensorboard(x_train)
+
+                # Train model
+                models.Sequential.fit(model, x_train, y_train, batch_size=10,
+                                      epochs=int(config['train/test/debug']['epochs']),
+                                      verbose=1, validation_data=(x_val, y_val),
+                                      shuffle=True, callbacks=callbacks_model
+                                      )
+            elif config['Network'].getboolean('residual') is True:
+                # Create model
+                model_res, callbacks_model_res = setup_model_and_tensorboard(x_train)
+
+                # Train model
+                model_res.fit(x_train, y_train, batch_size=10,
+                              epochs=int(config['train/test/debug']['epochs']),
+                              shuffle=True, validation_data=(x_val, y_val),
+                              callbacks=callbacks_model_res)
 
     elif mode == 'testing':
 
@@ -415,8 +437,8 @@ def main():
 
                 #     # Predicts the road
                 prediction = model.predict(img)
-                # Filter out values with less certainty than 65 %
-                prediction = np.where(prediction > 0.65, np.ones_like(prediction),
+                # Filter out values with less certainty than 85 %
+                prediction = np.where(prediction > 0.85, np.ones_like(prediction),
                                       np.zeros_like(prediction))
                 prediction = np.squeeze(prediction)
                 # Processing with morphological operations
