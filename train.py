@@ -30,68 +30,6 @@ config = configparser.ConfigParser()
 config.read("config.ini")
 
 
-def preprocess(image, segmentation):
-    """
-    Preprocessing images. User can choose of the following preprocessing operations:
-    1. Random crops
-    2. Flip up down
-    3. Flip left right
-    4. Color changes
-    """
-
-    # Doing some processing
-
-    if config['data_processing'].getboolean('rand_crop') is True:
-        # Random cropping
-        box = np.ones([1, 1, 4])
-        boxes_size = [int(config['data_processing']['y_min']),
-                      int(config['data_processing']['x_min']),
-                      int(config['data_processing']['x_pic']) - 1,
-                      int(config['data_processing']['y_pic']) - 1]
-        for i in range(4):
-            box[:, :, i] = boxes_size[i] / int(config['data_processing']['x_pic'])
-
-        bbox = tf.convert_to_tensor(box, np.float32)
-        begin, size, bbox_for_draw = tf.image.sample_distorted_bounding_box(
-            tf.shape(image), bounding_boxes=bbox, min_object_covered=0.25,
-            aspect_ratio_range=[0.75, 1.33], area_range=[0.05, 1.0], max_attempts=100,
-            use_image_if_no_bounding_boxes=True)
-
-        # Employ the bounding box to distort the image.
-        image = tf.slice(image, begin, size)
-        image = tf.image.resize_images(image, [int(config['data_processing']['x_pic']),
-                                               int(config['data_processing']['y_pic'])])
-        image.set_shape([int(config['data_processing']['x_pic']),
-                         int(config['data_processing']['y_pic']), 3])
-
-        segmentation = tf.slice(segmentation, begin, size)
-        segmentation = tf.image.resize_images(segmentation, [int(config['data_processing']['x_pic']),
-                                                             int(config['data_processing']['y_pic'])])
-        segmentation.set_shape([int(config['data_processing']['x_pic']),
-                                int(config['data_processing']['y_pic']), 1])
-        return image, segmentation
-
-    elif config['data_processing'].getboolean('flip_up_down') is True:
-        # Flipping up/down
-        image = tf.image.random_flip_up_down(image, seed=25)
-        segmentation = tf.image.random_flip_up_down(segmentation, seed=25)
-        return image, segmentation
-
-    elif config['data_processing'].getboolean('flip_left_right') is True:
-        # Flipping left/right
-        image = tf.image.random_flip_left_right(image, seed=30)
-        segmentation = tf.image.random_flip_left_right(segmentation, seed=30)
-        return image, segmentation
-
-    elif config['data_processing'].getboolean('color_change') is True:
-        # Color changes
-        image = tf.image.random_hue(image, max_delta=0.3)
-        return image, segmentation
-
-    else:
-        return image, segmentation
-
-
 def fetch_data(debug_mode=config['train/test/debug'].getboolean('debug_mode'), test=None):
     """
     Reading the images and prepares them for training/testing before appending them in a list
@@ -437,8 +375,8 @@ def main():
 
                 #     # Predicts the road
                 prediction = model.predict(img)
-                # Filter out values with less certainty than 85 %
-                prediction = np.where(prediction > 0.85, np.ones_like(prediction),
+                # Filter out values with less certainty than 65 %
+                prediction = np.where(prediction > 0.65, np.ones_like(prediction),
                                       np.zeros_like(prediction))
                 prediction = np.squeeze(prediction)
                 # Processing with morphological operations
