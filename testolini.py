@@ -1,5 +1,5 @@
 from __future__ import print_function
-
+from PIL import Image
 import glob
 import os
 import numpy as np
@@ -23,6 +23,8 @@ from keras.layers.pooling import MaxPooling2D
 from keras.layers.merge import concatenate
 from keras.callbacks import EarlyStopping
 from keras.preprocessing.image import ImageDataGenerator
+import h5py
+from keras import applications
 
 config = configparser.ConfigParser()
 config.read("config.ini")
@@ -87,6 +89,13 @@ def fetch_data(debug_mode=config['train/test/debug'].getboolean('debug_mode'), t
             else:
                 # Gt with red road
                 seg = seg[:, :, 0, None]
+
+
+            # if augmentation:
+            #     aug_img = aug(img)
+            #     aug_seg = aug_seg(seg)
+            #     x.append(aug_img)
+            #     y.append(aug_seg)
 
             x.append(img)
             y.append(seg)
@@ -408,10 +417,12 @@ def main():
                 model_res, callbacks_model_res = setup_model_and_tensorboard(x_train)
 
                 # Transfer learning
-                if config['train/test/debug'].getboolean('transfer') is True:
-                    model_res = load_model('models/freiburg/weights.45-0.99.hdf5')
-                    for layer in model_res.layers[:32]:
-                        layer.trainable = False
+                # model_res = applications.vgg16.VGG16(include_top=True, weights='imagenet', input_tensor=None,
+                #                                  input_shape=(224, 224, 3), pooling=None, classes=1000)
+                # for layer in model_res.layers:
+                #     layer.trainable = False
+                # model_res.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+
                 # Train model
                 model_res.fit(x_train, y_train, batch_size=10,
                               epochs=int(config['train/test/debug']['epochs']),
