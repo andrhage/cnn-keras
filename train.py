@@ -24,6 +24,7 @@ from keras.layers.merge import concatenate
 from keras.callbacks import EarlyStopping
 from keras.preprocessing.image import ImageDataGenerator
 
+
 config = configparser.ConfigParser()
 config.read("config.ini")
 
@@ -80,6 +81,7 @@ def fetch_data(debug_mode=config['train/test/debug'].getboolean('debug_mode'), t
                 # Gt with pink/blue road
                 seg = seg[:, :, 2, None]
             elif config['data_processing'].getboolean('freiburg') is True:
+                # Mask out other classes than road and background, and converts the image
                 bg = seg[:, :, 0] == seg[:, :, 1]  # B == G
                 gr = seg[:, :, 1] == seg[:, :, 2]  # G == R
                 seg = np.bitwise_and(bg, gr, dtype=np.uint8)
@@ -146,9 +148,9 @@ def keras_model_sequential(input_shape):
     # Initializing
     model = models.Sequential()
     # Input layer
-    model.add(layers.Conv2D(32, 11, strides=(2, 2), padding='same', activation='relu', input_shape=input_shape))
+    model.add(layers.Conv2D(16, 5, strides=(2, 2), padding='same', activation='relu', input_shape=input_shape))
     # Conv layers
-    model.add(layers.Conv2D(16, 7, strides=(2, 2), padding='same', activation='relu'))
+    model.add(layers.Conv2D(16, 5, strides=(2, 2), padding='same', activation='relu'))
     model.add(layers.Conv2D(32, 5, strides=(2, 2), padding='same', activation='relu'))
     model.add(layers.Conv2D(32, 5, strides=(2, 2), padding='same', activation='relu'))
     model.add(layers.Conv2DTranspose(32, 5, strides=(2, 2), padding='same', activation='relu'))
@@ -173,55 +175,55 @@ def keras_model_residual():
 
     # U-Net model
     inputs = Input((int(config['data_processing']['x_pic']), int(config['data_processing']['y_pic']), 3))
-    c1 = Conv2D(16, (3, 3), activation='relu', kernel_initializer='he_normal', padding='same')(inputs)
-    c1 = Dropout(0.1)(c1)
-    c1 = Conv2D(16, (3, 3), activation='relu', kernel_initializer='he_normal', padding='same')(c1)
-    p1 = MaxPooling2D((2, 2))(c1)
+    conv_1 = Conv2D(16, (3, 3), activation='relu', kernel_initializer='he_normal', padding='same')(inputs)
+    conv_1 = Dropout(0.1)(conv_1)
+    conv_1 = Conv2D(16, (3, 3), activation='relu', kernel_initializer='he_normal', padding='same')(conv_1)
+    pool_1 = MaxPooling2D((2, 2))(conv_1)
 
-    c2 = Conv2D(32, (3, 3), activation='relu', kernel_initializer='he_normal', padding='same')(p1)
-    c2 = Dropout(0.1)(c2)
-    c2 = Conv2D(32, (3, 3), activation='relu', kernel_initializer='he_normal', padding='same')(c2)
-    p2 = MaxPooling2D((2, 2))(c2)
+    conv_2 = Conv2D(32, (3, 3), activation='relu', kernel_initializer='he_normal', padding='same')(pool_1)
+    conv_2 = Dropout(0.1)(conv_2)
+    conv_2 = Conv2D(32, (3, 3), activation='relu', kernel_initializer='he_normal', padding='same')(conv_2)
+    pool_2 = MaxPooling2D((2, 2))(conv_2)
 
-    c3 = Conv2D(64, (3, 3), activation='relu', kernel_initializer='he_normal', padding='same')(p2)
-    c3 = Dropout(0.2)(c3)
-    c3 = Conv2D(64, (3, 3), activation='relu', kernel_initializer='he_normal', padding='same')(c3)
-    p3 = MaxPooling2D((2, 2))(c3)
+    conv_3 = Conv2D(64, (3, 3), activation='relu', kernel_initializer='he_normal', padding='same')(pool_2)
+    conv_3 = Dropout(0.2)(conv_3)
+    conv_3 = Conv2D(64, (3, 3), activation='relu', kernel_initializer='he_normal', padding='same')(conv_3)
+    pool_3 = MaxPooling2D((2, 2))(conv_3)
 
-    c4 = Conv2D(128, (3, 3), activation='relu', kernel_initializer='he_normal', padding='same')(p3)
-    c4 = Dropout(0.2)(c4)
-    c4 = Conv2D(128, (3, 3), activation='relu', kernel_initializer='he_normal', padding='same')(c4)
-    p4 = MaxPooling2D(pool_size=(2, 2))(c4)
+    conv_4 = Conv2D(128, (3, 3), activation='relu', kernel_initializer='he_normal', padding='same')(pool_3)
+    conv_4 = Dropout(0.2)(conv_4)
+    conv_4 = Conv2D(128, (3, 3), activation='relu', kernel_initializer='he_normal', padding='same')(conv_4)
+    pool_4 = MaxPooling2D(pool_size=(2, 2))(conv_4)
 
-    c5 = Conv2D(256, (3, 3), activation='relu', kernel_initializer='he_normal', padding='same')(p4)
-    c5 = Dropout(0.3)(c5)
-    c5 = Conv2D(256, (3, 3), activation='relu', kernel_initializer='he_normal', padding='same')(c5)
+    conv_5 = Conv2D(256, (3, 3), activation='relu', kernel_initializer='he_normal', padding='same')(pool_4)
+    conv_5 = Dropout(0.3)(conv_5)
+    conv_5 = Conv2D(256, (3, 3), activation='relu', kernel_initializer='he_normal', padding='same')(conv_5)
 
-    u6 = Conv2DTranspose(128, (2, 2), strides=(2, 2), padding='same')(c5)
-    u6 = concatenate([u6, c4])
-    c6 = Conv2D(128, (3, 3), activation='relu', kernel_initializer='he_normal', padding='same')(u6)
-    c6 = Dropout(0.2)(c6)
-    c6 = Conv2D(128, (3, 3), activation='relu', kernel_initializer='he_normal', padding='same')(c6)
+    up_6 = Conv2DTranspose(128, (2, 2), strides=(2, 2), padding='same')(conv_5)
+    up_6 = concatenate([up_6, conv_4])
+    conv_6 = Conv2D(128, (3, 3), activation='relu', kernel_initializer='he_normal', padding='same')(up_6)
+    conv_6 = Dropout(0.2)(conv_6)
+    conv_6 = Conv2D(128, (3, 3), activation='relu', kernel_initializer='he_normal', padding='same')(conv_6)
 
-    u7 = Conv2DTranspose(64, (2, 2), strides=(2, 2), padding='same') (c6)
-    u7 = concatenate([u7, c3])
-    c7 = Conv2D(64, (3, 3), activation='relu', kernel_initializer='he_normal', padding='same')(u7)
-    c7 = Dropout(0.2)(c7)
-    c7 = Conv2D(64, (3, 3), activation='relu', kernel_initializer='he_normal', padding='same')(c7)
+    up_7 = Conv2DTranspose(64, (2, 2), strides=(2, 2), padding='same') (conv_6)
+    up_7 = concatenate([up_7, conv_3])
+    conv_7 = Conv2D(64, (3, 3), activation='relu', kernel_initializer='he_normal', padding='same')(up_7)
+    conv_7 = Dropout(0.2)(conv_7)
+    conv_7 = Conv2D(64, (3, 3), activation='relu', kernel_initializer='he_normal', padding='same')(conv_7)
 
-    u8 = Conv2DTranspose(32, (2, 2), strides=(2, 2), padding='same')(c7)
-    u8 = concatenate([u8, c2])
-    c8 = Conv2D(32, (3, 3), activation='relu', kernel_initializer='he_normal', padding='same')(u8)
-    c8 = Dropout(0.1)(c8)
-    c8 = Conv2D(32, (3, 3), activation='relu', kernel_initializer='he_normal', padding='same')(c8)
+    up_8 = Conv2DTranspose(32, (2, 2), strides=(2, 2), padding='same')(conv_7)
+    up_8 = concatenate([up_8, conv_2])
+    conv_8 = Conv2D(32, (3, 3), activation='relu', kernel_initializer='he_normal', padding='same')(up_8)
+    conv_8 = Dropout(0.1)(conv_8)
+    conv_8 = Conv2D(32, (3, 3), activation='relu', kernel_initializer='he_normal', padding='same')(conv_8)
 
-    u9 = Conv2DTranspose(16, (2, 2), strides=(2, 2), padding='same')(c8)
-    u9 = concatenate([u9, c1], axis=3)
-    c9 = Conv2D(16, (3, 3), activation='relu', kernel_initializer='he_normal', padding='same')(u9)
-    c9 = Dropout(0.1)(c9)
-    c9 = Conv2D(16, (3, 3), activation='relu', kernel_initializer='he_normal', padding='same')(c9)
+    up_9 = Conv2DTranspose(16, (2, 2), strides=(2, 2), padding='same')(conv_8)
+    up_9 = concatenate([up_9, conv_1], axis=3)
+    conv_9 = Conv2D(16, (3, 3), activation='relu', kernel_initializer='he_normal', padding='same')(up_9)
+    conv_9 = Dropout(0.1)(conv_9)
+    conv_9 = Conv2D(16, (3, 3), activation='relu', kernel_initializer='he_normal', padding='same')(conv_9)
 
-    outputs = Conv2D(1, (1, 1), activation='sigmoid')(c9)
+    outputs = Conv2D(1, (1, 1), activation='sigmoid')(conv_9)
 
     model = Model(inputs=[inputs], outputs=[outputs])
     model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
@@ -238,7 +240,7 @@ def setup_model_and_tensorboard(x_train):
     if config['Network'].getboolean('sequential') is True:
         model = keras_model_sequential(x_train[0].shape)
 
-        tensorboard_callback = callbacks.TensorBoard(log_dir='./logs', histogram_freq=0, batch_size=8,
+        tensorboard_callback = callbacks.TensorBoard(log_dir='./logs', histogram_freq=10, batch_size=10,
                                                      write_graph=True,
                                                      write_grads=True, write_images=True,
                                                      embeddings_freq=0, embeddings_layer_names=None,

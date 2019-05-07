@@ -1,8 +1,8 @@
 import cv2
 import os
 
-image_folder = 'predictions/transfer_learning_2000/'
-video_name = 'predictions/transfer_learning_2000/Segmentation_video.avi'
+image_folder = 'predictions/testing_freiburg/'
+video_name = 'predictions/testing_freiburg/Segmentation_video.avi'
 #images = os.listdir(image_folder)
 images = [img for img in os.listdir(image_folder) if img.endswith(".png")]
 images.sort(key=lambda x: int(x[:][0:-4]))
