@@ -412,7 +412,7 @@ def main():
                 # Transfer learning
                 if config['train/test/debug'].getboolean('transfer') is True:
                     model_res = load_model('models/freiburg/weights.45-0.99.hdf5')
-                    for layer in model_res.layers[:32]:
+                    for layer in model_res.layers[:int(config['train/test/debug']['layers'])]:
                         layer.trainable = False
                 # Train model
                 model_res.fit(x_train, y_train, batch_size=10,
