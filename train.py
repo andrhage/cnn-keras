@@ -2,10 +2,12 @@ from __future__ import print_function
 
 import glob
 import os
+import random
 import numpy as np
 from scipy import misc
 import sklearn.model_selection
 import sklearn
+from skimage import color
 import matplotlib.pyplot as plt
 from keras import models
 from keras import layers
@@ -89,6 +91,21 @@ def fetch_data(debug_mode=config['train/test/debug'].getboolean('debug_mode'), t
             else:
                 # Gt with red road
                 seg = seg[:, :, 0, None]
+
+            # Data augmentation
+            if config['data_processing'].getboolean('flip') is True:
+                if random.uniform(0, 1) > 0.5:
+                    flip_img = cv2.flip(img, 1)
+                    flip_seg = cv2.flip(seg, 1)
+                    flip_seg = np.reshape(flip_seg, (int(config['data_processing']['x_pic']),
+                                                     int(config['data_processing']['y_pic']), 1))
+                    x.append(flip_img)
+                    y.append(flip_seg)
+            elif config['data_processing'].getboolean('color_change') is True:
+                if random.uniform(0, 1) > 0.5:
+                    color_change_img = color.convert_colorspace(img, 'RGB', 'RGB CIE')
+                    x.append(color_change_img)
+                    y.append(seg)
 
             x.append(img)
             y.append(seg)

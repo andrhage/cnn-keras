@@ -115,6 +115,7 @@ for prediction_path, gt_path in zip(prediction_names, gt_names):
     y.append(IoU_2)
     z.append(mIoU)
     if freiburg is True:
+        # Removes 'nan' from all three lists
         x = [i for i in x if str(i) != 'nan']
         y = [i for i in y if str(i) != 'nan']
         z = [i for i in z if str(i) != 'nan']
