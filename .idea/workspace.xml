@@ -15,9 +15,9 @@
   <component name="CoverageDataManager">
     <SUITE FILE_PATH="coverage/Master_thesis$draw_network.coverage" NAME="draw_network Coverage Results" MODIFIED="1556473862560" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/Master_thesis$tester.coverage" NAME="tester Coverage Results" MODIFIED="1552572007153" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/Master_thesis$accuracy.coverage" NAME="accuracy Coverage Results" MODIFIED="1557256570474" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/Master_thesis$accuracy.coverage" NAME="accuracy Coverage Results" MODIFIED="1557334360134" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/Master_thesis$convert_files.coverage" NAME="convert_files Coverage Results" MODIFIED="1556108977900" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/Master_thesis$train.coverage" NAME="train Coverage Results" MODIFIED="1557304392007" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/Master_thesis$train.coverage" NAME="train Coverage Results" MODIFIED="1557327829066" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/Master_thesis$Video_writer.coverage" NAME="Video_writer Coverage Results" MODIFIED="1556124462959" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
   </component>
   <component name="DatabaseView">
@@ -74,16 +74,16 @@
           <entry key="Python Console" value="431" />
           <entry key="dummy" value="6" />
           <entry key="gitignore" value="14" />
-          <entry key="ini" value="1976" />
-          <entry key="py" value="14175" />
+          <entry key="ini" value="2204" />
+          <entry key="py" value="14423" />
           <entry key="txt" value="84" />
         </counts>
       </usages-collector>
       <usages-collector id="statistics.file.types.edit">
         <counts>
-          <entry key="Ini" value="1976" />
+          <entry key="Ini" value="2204" />
           <entry key="PLAIN_TEXT" value="104" />
-          <entry key="Python" value="14606" />
+          <entry key="Python" value="14854" />
         </counts>
       </usages-collector>
     </session>
@@ -93,16 +93,14 @@
       <file pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/train.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="436">
-              <caret line="104" column="38" selection-start-line="104" selection-start-column="38" selection-end-line="104" selection-end-column="38" />
+            <state relative-caret-position="2093">
+              <caret line="91" column="34" lean-forward="true" selection-start-line="91" selection-start-column="34" selection-end-line="91" selection-end-column="34" />
               <folding>
                 <element signature="e#0#37#0" expanded="true" />
                 <element signature="e#4274#4757#0" />
                 <element signature="e#4805#6048#0" />
                 <element signature="e#9519#11920#0" />
-                <element signature="e#11958#12688#0" />
-                <element signature="e#12736#15546#0" />
-                <marker date="1557304391560" expanded="true" signature="4238:4239" ph="..." />
+                <marker date="1557326155528" expanded="true" signature="4238:4239" ph="..." />
               </folding>
             </state>
           </provider>
@@ -111,8 +109,8 @@
       <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/accuracy.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="2392">
-              <caret line="117" column="44" selection-start-line="117" selection-start-column="44" selection-end-line="117" selection-end-column="44" />
+            <state relative-caret-position="2461">
+              <caret line="120" column="17" selection-start-line="120" selection-start-column="17" selection-end-line="120" selection-end-column="17" />
               <folding>
                 <element signature="e#0#11#0" expanded="true" />
                 <element signature="e#46#845#0" />
@@ -184,8 +182,8 @@
       <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/config.ini">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="46">
-              <caret line="2" column="11" selection-start-line="2" selection-start-column="11" selection-end-line="2" selection-end-column="11" />
+            <state relative-caret-position="138">
+              <caret line="24" column="19" selection-start-line="24" selection-start-column="19" selection-end-line="24" selection-end-column="19" />
             </state>
           </provider>
         </entry>
@@ -226,11 +224,11 @@
       <find>batch</find>
       <find>learning</find>
       <find>adam</find>
-      <find>transfer</find>
       <find>predictions</find>
-      <find>weights</find>
       <find>flip</find>
       <find>x_pi</find>
+      <find>weights</find>
+      <find>transfer</find>
     </findStrings>
   </component>
   <component name="Git.Settings">
@@ -246,9 +244,9 @@
         <option value="$PROJECT_DIR$/convert_files.py" />
         <option value="$PROJECT_DIR$/Video_writer.py" />
         <option value="$PROJECT_DIR$/draw_network.py" />
-        <option value="$PROJECT_DIR$/accuracy.py" />
-        <option value="$PROJECT_DIR$/config.ini" />
         <option value="$PROJECT_DIR$/train.py" />
+        <option value="$PROJECT_DIR$/config.ini" />
+        <option value="$PROJECT_DIR$/accuracy.py" />
       </list>
     </option>
   </component>
@@ -258,7 +256,7 @@
     <detection-done>true</detection-done>
     <sorting>DEFINITION_ORDER</sorting>
   </component>
-  <component name="ProjectFrameBounds" extendedState="6">
+  <component name="ProjectFrameBounds" extendedState="7">
     <option name="x" value="-7" />
     <option name="width" value="974" />
     <option name="height" value="1047" />
@@ -279,12 +277,6 @@
               <item name="Master-thesis" type="b2602c69:ProjectViewProjectNode" />
               <item name="Master-thesis" type="462c0819:PsiDirectoryNode" />
               <item name="models" type="462c0819:PsiDirectoryNode" />
-            </path>
-            <path>
-              <item name="Master-thesis" type="b2602c69:ProjectViewProjectNode" />
-              <item name="Master-thesis" type="462c0819:PsiDirectoryNode" />
-              <item name="models" type="462c0819:PsiDirectoryNode" />
-              <item name="custom_1_transfer_residual" type="462c0819:PsiDirectoryNode" />
             </path>
           </expand>
           <select />
@@ -312,7 +304,7 @@
       </list>
     </option>
   </component>
-  <component name="RunManager" selected="Python.train">
+  <component name="RunManager" selected="Python.accuracy">
     <configuration name="Video_writer" type="PythonConfigurationType" factoryName="Python" temporary="true">
       <module name="Master-thesis" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -432,8 +424,8 @@
     </list>
     <recent_temporary>
       <list>
-        <item itemvalue="Python.train" />
         <item itemvalue="Python.accuracy" />
+        <item itemvalue="Python.train" />
         <item itemvalue="Python.draw_network" />
         <item itemvalue="Python.Video_writer" />
         <item itemvalue="Python.convert_files" />
@@ -463,7 +455,7 @@
     </todo-panel>
   </component>
   <component name="ToolWindowManager">
-    <frame x="-8" y="-8" width="1936" height="1056" extended-state="6" />
+    <frame x="-8" y="-8" width="1936" height="1056" extended-state="7" />
     <editor active="true" />
     <layout>
       <window_info content_ui="combo" id="Project" order="0" sideWeight="0.49889868" visible="true" weight="0.1913646" />
@@ -471,7 +463,7 @@
       <window_info id="Favorites" order="2" side_tool="true" />
       <window_info anchor="bottom" id="Message" order="0" />
       <window_info anchor="bottom" id="Find" order="1" weight="0.32929516" />
-      <window_info active="true" anchor="bottom" id="Run" order="2" sideWeight="0.4978678" visible="true" weight="0.31387666" />
+      <window_info active="true" anchor="bottom" id="Run" order="2" sideWeight="0.4978678" visible="true" weight="0.2654185" />
       <window_info anchor="bottom" id="Debug" order="3" sideWeight="0.49946696" weight="0.38656387" />
       <window_info anchor="bottom" id="Cvs" order="4" weight="0.25" />
       <window_info anchor="bottom" id="Inspection" order="5" weight="0.4" />
@@ -739,17 +731,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/accuracy.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="2392">
-          <caret line="117" column="44" selection-start-line="117" selection-start-column="44" selection-end-line="117" selection-end-column="44" />
-          <folding>
-            <element signature="e#0#11#0" expanded="true" />
-            <element signature="e#46#845#0" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$USER_HOME$/.PyCharm2018.2/system/python_stubs/2049898888/cv2/cv2/__init__.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="244">
@@ -759,23 +740,32 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/config.ini">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="46">
-          <caret line="2" column="11" selection-start-line="2" selection-start-column="11" selection-end-line="2" selection-end-column="11" />
+        <state relative-caret-position="138">
+          <caret line="24" column="19" selection-start-line="24" selection-start-column="19" selection-end-line="24" selection-end-column="19" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/accuracy.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="2461">
+          <caret line="120" column="17" selection-start-line="120" selection-start-column="17" selection-end-line="120" selection-end-column="17" />
+          <folding>
+            <element signature="e#0#11#0" expanded="true" />
+            <element signature="e#46#845#0" />
+          </folding>
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/train.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="436">
-          <caret line="104" column="38" selection-start-line="104" selection-start-column="38" selection-end-line="104" selection-end-column="38" />
+        <state relative-caret-position="2093">
+          <caret line="91" column="34" lean-forward="true" selection-start-line="91" selection-start-column="34" selection-end-line="91" selection-end-column="34" />
           <folding>
             <element signature="e#0#37#0" expanded="true" />
             <element signature="e#4274#4757#0" />
             <element signature="e#4805#6048#0" />
             <element signature="e#9519#11920#0" />
-            <element signature="e#11958#12688#0" />
-            <element signature="e#12736#15546#0" />
-            <marker date="1557304391560" expanded="true" signature="4238:4239" ph="..." />
+            <marker date="1557326155528" expanded="true" signature="4238:4239" ph="..." />
           </folding>
         </state>
       </provider>

@@ -307,8 +307,11 @@ def cca_algorithm(prediction):
         labelmask[cca == labels] = 255
         count_pixels = cv2.countNonZero(labelmask)
         if count_pixels > int(config['predictions']['threshold']):
-            mask = cv2.add(mask, labelmask)
-            mask = ndi.binary_fill_holes(mask)
+            try:
+                mask = cv2.add(mask, labelmask)
+                mask = ndi.binary_fill_holes(mask)
+            except TypeError:
+                continue
     return mask
 
 
@@ -336,14 +339,15 @@ def predict(x_test, image_names, model):
         kernel = np.ones((3, 3), np.uint8)
         prediction = cv2.erode(prediction, kernel, iterations=3)
         prediction = cv2.dilate(prediction, kernel, iterations=2)
-        # Processing with connected component analysis
-        mask = cca_algorithm(prediction)
+
         fig, (ax1, ax2) = plt.subplots(1, 2)
         # ax1.imshow(np.squeeze(prediction))
         ax2.imshow(np.squeeze(img))
 
         # With or without cca
         if config['predictions'].getboolean('cca') is True:
+            # Processing with connected component analysis
+            mask = cca_algorithm(prediction)
             ax1.imshow(mask)
             fig.savefig(('{}/' + str(names[20:-4]) +
                          '.png').format('D:/Masteroppgave/Master-thesis/predictions'))
@@ -389,53 +393,30 @@ def main():
 
         # Split data
         x_train, x_val, y_train, y_val = split_data(x_data, y_data)
-
-        # Choosing whether to use data augmentation or not
-        if config['train/test/debug'].getboolean('augmentation') is True:
-
+        if config['Network'].getboolean('sequential') is True:
             # Create model
             model, callbacks_model = setup_model_and_tensorboard(x_train)
 
-            data_generator = ImageDataGenerator(
-                featurewise_center=True,
-                featurewise_std_normalization=True,
-                rotation_range=20,
-                width_shift_range=0.2,
-                height_shift_range=0.2,
-                horizontal_flip=True)
+            # Train model
+            models.Sequential.fit(model, x_train, y_train, batch_size=10,
+                                  epochs=int(config['train/test/debug']['epochs']),
+                                  verbose=1, validation_data=(x_val, y_val),
+                                  shuffle=True, callbacks=callbacks_model
+                                  )
+        elif config['Network'].getboolean('residual') is True:
+            # Create model
+            model_res, callbacks_model_res = setup_model_and_tensorboard(x_train)
 
-            data_generator.fit(x_train)
-
-            model.fit_generator(data_generator.flow(x_train, y_train, batch_size=10),
-                                steps_per_epoch=len(x_train) / 10, epochs=int(config['train/test/debug']['epochs']),
-                                validation_data=(x_val, y_val), shuffle=True, verbose=1, callbacks=callbacks_model
-                                )
-
-        else:
-            if config['Network'].getboolean('sequential') is True:
-                # Create model
-                model, callbacks_model = setup_model_and_tensorboard(x_train)
-
-                # Train model
-                models.Sequential.fit(model, x_train, y_train, batch_size=10,
-                                      epochs=int(config['train/test/debug']['epochs']),
-                                      verbose=1, validation_data=(x_val, y_val),
-                                      shuffle=True, callbacks=callbacks_model
-                                      )
-            elif config['Network'].getboolean('residual') is True:
-                # Create model
-                model_res, callbacks_model_res = setup_model_and_tensorboard(x_train)
-
-                # Transfer learning
-                if config['train/test/debug'].getboolean('transfer') is True:
-                    model_res = load_model('models/freiburg/weights.45-0.99.hdf5')
-                    for layer in model_res.layers[:int(config['train/test/debug']['layers'])]:
-                        layer.trainable = False
-                # Train model
-                model_res.fit(x_train, y_train, batch_size=10,
-                              epochs=int(config['train/test/debug']['epochs']),
-                              shuffle=True, validation_data=(x_val, y_val),
-                              callbacks=callbacks_model_res)
+            # Transfer learning
+            if config['train/test/debug'].getboolean('transfer') is True:
+                model_res = load_model('models/' + config['train/test/debug']['weights'])
+                for layer in model_res.layers[:int(config['train/test/debug']['layers'])]:
+                    layer.trainable = False
+            # Train model
+            model_res.fit(x_train, y_train, batch_size=10,
+                          epochs=int(config['train/test/debug']['epochs']),
+                          shuffle=True, validation_data=(x_val, y_val),
+                          callbacks=callbacks_model_res)
 
     elif mode == 'testing':
 

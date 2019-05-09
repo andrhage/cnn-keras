@@ -21,13 +21,13 @@ def filenames(dataset_folder):
                                            recursive=True)
     return prediction_names, gt_names
 
+
 # Set to True if those datasets is used
-kitti = False
-freiburg = True
+freiburg = False
 
 # Read images
 prediction_names, gt_names = filenames('data')
-x, y, z = [], [], []
+a, b, x, y, z = [], [], [], [], []
 i = 1
 # Go through each image
 for prediction_path, gt_path in zip(prediction_names, gt_names):
@@ -47,18 +47,8 @@ for prediction_path, gt_path in zip(prediction_names, gt_names):
     prediction = np.array((prediction - np.min(prediction)) / (np.max(prediction) - np.min(prediction)))
     gt = np.array((gt - np.min(gt)) / (np.max(gt) - np.min(gt)))
 
-    # Set values to either 1 or 0 values
-    # prediction = np.where(prediction > 0.5, np.ones_like(prediction),
-    #                       np.zeros_like(prediction))
-    # gt = np.where(gt > 0.5, np.ones_like(gt), np.zeros_like(gt))
-
-    # Execute only if its a kitti dataset
-    if kitti is True:
-        # Gt with pink/blue road
-        gt = gt[:, :, 2, None]
-        prediction = prediction[:, :, 0, None]
     # Execute only if its a freiburg dataset
-    elif freiburg is True:
+    if freiburg is True:
         # Mask out other classes than road and background, and converts the image
         bg = gt[:, :, 0] == gt[:, :, 1]  # B == G
         gr = gt[:, :, 1] == gt[:, :, 2]  # G == R
@@ -72,10 +62,15 @@ for prediction_path, gt_path in zip(prediction_names, gt_names):
         c_21 = np.sum((gt == 0) * (prediction == 1))
         c_22 = np.sum((gt == 0) * (prediction == 0))
 
+        # Setting up the metrics
+        accuracy = (c_11 + c_22) / (c_11 + c_22 + c_12 + c_21)
         IoU_1 = c_11 / (c_11 + c_12 + c_21)
         IoU_2 = c_22 / (c_22 + c_21 + c_12)
         mIoU = (IoU_1 + IoU_2) / 2
+
         print('**********************************************************')
+        print('{} {}'.format('Accuracy : ', accuracy))
+        print('---------------------------------------------------------------')
         print('{} {}'.format('IoU Road: ', IoU_1))
         print('---------------------------------------------------------------')
         print('{} {}'.format('IoU Background: ', IoU_2))
@@ -85,6 +80,8 @@ for prediction_path, gt_path in zip(prediction_names, gt_names):
         print(i)
         i += 1
         print('**********************************************************')
+
+
     # Normal gt and prediction images
     else:
         # Gt with red road
@@ -97,10 +94,14 @@ for prediction_path, gt_path in zip(prediction_names, gt_names):
         c_21 = np.sum((gt == 0) * (prediction == 1))
         c_22 = np.sum((gt == 0) * (prediction == 0))
 
+        # Setting up the metrics
+        accuracy = (c_11 + c_22) / (c_11 + c_22 + c_12 + c_21)
         IoU_1 = c_11 / (c_11 + c_12 + c_21)
         IoU_2 = c_22 / (c_22 + c_21 + c_12)
         mIoU = (IoU_1 + IoU_2) / 2
         print('**********************************************************')
+        print('{} {}'.format('Accuracy : ', accuracy))
+        print('---------------------------------------------------------------')
         print('{} {}'.format('IoU Road: ', IoU_1))
         print('---------------------------------------------------------------')
         print('{} {}'.format('IoU Background: ', IoU_2))
@@ -108,19 +109,25 @@ for prediction_path, gt_path in zip(prediction_names, gt_names):
         print('{} {}'.format('mIoU : ', mIoU))
         print('---------------------------------------------------------------')
         print(i)
+
         i += 1
         print('**********************************************************')
     # Append accuracies to lists
+    a.append(accuracy)
+    b.append(c_21)
     x.append(IoU_1)
     y.append(IoU_2)
     z.append(mIoU)
     if freiburg is True:
         # Removes 'nan' from all three lists
+        a = [i for i in a if str(i) != 'nan']
         x = [i for i in x if str(i) != 'nan']
         y = [i for i in y if str(i) != 'nan']
         z = [i for i in z if str(i) != 'nan']
 
+tot_accuracy = mean(a)
 tot_IoU_1 = mean(x)
 tot_IoU_2 = mean(y)
 tot_mIoU = mean(z)
-print('1: {} 2: {} 3: {}'.format(tot_IoU_1, tot_IoU_2, tot_mIoU))
+tot_fn = mean(b)
+print('Accuracy: {} IoU_1: {} IoU_2: {} mIoU: {} FN: {}'.format(tot_accuracy, tot_IoU_1, tot_IoU_2, tot_mIoU, tot_fn))
