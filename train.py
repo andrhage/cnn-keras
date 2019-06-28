@@ -23,20 +23,44 @@ from keras.layers.core import Dropout
 from keras.layers.convolutional import Conv2D, Conv2DTranspose
 from keras.layers.pooling import MaxPooling2D
 from keras.layers.merge import concatenate
-from keras.callbacks import EarlyStopping
-from keras.preprocessing.image import ImageDataGenerator
 
-
+# Sets up the parser environment which let's the user change hyperparameters in this code through config.ini
 config = configparser.ConfigParser()
 config.read("config.ini")
 
 
+def filenames(dataset_folder, test=None):
+    """
+    Returning a list with image names from both testing and training directory according to users choice
+
+    :param dataset_folder:
+    :param test: None
+    :return: image_names, segmentation_names
+    """
+    if test is True:
+        sub_dataset = 'testing'
+        image_names = glob.glob(os.path.join(dataset_folder, sub_dataset, 'images', '**.png'),
+                                recursive=True)
+        return image_names
+    else:
+
+        sub_dataset = 'training'
+        segmentation_names = glob.glob(os.path.join(dataset_folder, sub_dataset, 'gt', '**.png'),
+                                           recursive=True)
+        image_names = glob.glob(os.path.join(dataset_folder, sub_dataset, 'images', '**.png'),
+                                           recursive=True)
+        return image_names, segmentation_names
+
+
 def fetch_data(debug_mode=config['train/test/debug'].getboolean('debug_mode'), test=None):
     """
-    Reading the images and prepares them for training/testing before appending them in a list
+    This function includes two different tasks.
+    The first is to read data from directory sort it and append their filenames in list.
+    The second is to execute some pre-proccessing of the data, like resizing, normalizing and/or data augmentation
 
-    :return:
+    :return: x, y
     """
+    # Test refers to test images
     if test is True:
         image_names = filenames('data', test=True)
         x = []
@@ -48,17 +72,19 @@ def fetch_data(debug_mode=config['train/test/debug'].getboolean('debug_mode'), t
             # Preprocess image
             img = cv2.resize(img, (int(config['data_processing']['x_pic']),
                                    int(config['data_processing']['y_pic'])))
+            # Normalize
             img = img.astype(float) / 255
-            # Data augmentation under here:
 
             x.append(img)
 
+            # Debug mode takes only 10 images from the dataset-directory to save time during debug
             if debug_mode is True:
                 # Debug function
                 i += 1
                 if i == 10:
                     break
         return x
+    # This runs in training mode
     else:
         image_names, segmentation_names = filenames('data')
         x, y = [], []
@@ -75,6 +101,7 @@ def fetch_data(debug_mode=config['train/test/debug'].getboolean('debug_mode'), t
                                    int(config['data_processing']['y_pic'])))
             seg = cv2.resize(seg, (int(config['data_processing']['x_pic']),
                                    int(config['data_processing']['y_pic'])))
+            # Normalize
             img = img.astype(float) / 255
             seg = seg.astype(float)
             seg = np.array((seg - np.min(seg)) / (np.max(seg) - np.min(seg)))
@@ -118,34 +145,11 @@ def fetch_data(debug_mode=config['train/test/debug'].getboolean('debug_mode'), t
         return x, y
 
 
-def filenames(dataset_folder, test=None):
-    """
-    Returning a list with image names from both testing and training directory according to users choice
-
-    :param dataset_folder:
-    :param test:
-    :return:
-    """
-    if test is True:
-        sub_dataset = 'testing'
-        image_names = glob.glob(os.path.join(dataset_folder, sub_dataset, 'images', '**.png'),
-                                recursive=True)
-        return image_names
-    else:
-
-        sub_dataset = 'training'
-        segmentation_names = glob.glob(os.path.join(dataset_folder, sub_dataset, 'gt', '**.png'),
-                                           recursive=True)
-        image_names = glob.glob(os.path.join(dataset_folder, sub_dataset, 'images', '**.png'),
-                                           recursive=True)
-        return image_names, segmentation_names
-
-
 def split_data(x_data, y_data):
     """
     Splits data into training and validation sets
 
-    :return:
+    :return: 4 arrays where x_ refers to the original images and y_ to the ground truth
     """
     x_train, x_val, y_train, y_val = \
         sklearn.model_selection.train_test_split(x_data,
@@ -153,6 +157,49 @@ def split_data(x_data, y_data):
                                                  test_size=float(config['train/test/debug']['test_size']),
                                                  random_state=42)
     return np.array(x_train), np.array(x_val), np.array(y_train), np.array(y_val)
+
+
+def setup_model_and_tensorboard(x_train):
+    """
+    Sets up or loads a model in order to visualize the training live in tensorboard
+    One setup for each network
+    :return:
+    """
+    if config['Network'].getboolean('sequential') is True:
+        model = keras_model_sequential(x_train[0].shape)
+
+        tensorboard_callback = callbacks.TensorBoard(log_dir='./logs', histogram_freq=10, batch_size=10,
+                                                     write_graph=True,
+                                                     write_grads=True, write_images=True,
+                                                     embeddings_freq=0, embeddings_layer_names=None,
+                                                     embeddings_metadata=None, embeddings_data=None,
+                                                     update_freq='epoch'
+                                                     )
+        checkpoint = callbacks.ModelCheckpoint('models/weights.{epoch:02d}-{val_acc:.2f}.hdf5', monitor='val_acc',
+                                               verbose=1,
+                                               save_best_only=config['train/test/debug'].getboolean('save_best'),
+                                               save_weights_only=False, mode='auto', period=1)
+
+        return model, [tensorboard_callback, checkpoint]
+
+    elif config['Network'].getboolean('residual') is True:
+        model_res = keras_model_residual()
+
+        tensorboard_callback = callbacks.TensorBoard(log_dir='./logs', histogram_freq=0, batch_size=10,
+                                                     write_graph=True,
+                                                     write_grads=True, write_images=True,
+                                                     embeddings_freq=0, embeddings_layer_names=None,
+                                                     embeddings_metadata=None, embeddings_data=None,
+                                                     update_freq='epoch'
+                                                     )
+        checkpoint_res = callbacks.ModelCheckpoint('models/weights.{epoch:02d}-{val_acc:.2f}.hdf5',
+                                                   verbose=1,
+                                               save_best_only=config['train/test/debug'].getboolean('save_best'),
+                                               save_weights_only=False, mode='auto', period=1)
+
+        # early_stop = EarlyStopping(patience=5, verbose=1)
+
+        return model_res, [tensorboard_callback, checkpoint_res]
 
 
 def keras_model_sequential(input_shape):
@@ -185,9 +232,11 @@ def keras_model_sequential(input_shape):
 
 def keras_model_residual():
     """
-    Based on "https://www.kaggle.com/keegil/keras-u-net-starter-lb-0-277"
+    Based on the following implementation:
+    "https://www.kaggle.com/keegil/keras-u-net-starter-lb-0-277"
+
     :param input_shape:
-    :return:
+    :return: model
     """
 
     # U-Net model
@@ -249,54 +298,13 @@ def keras_model_residual():
     return model
 
 
-def setup_model_and_tensorboard(x_train):
-    """
-    Sets up or loads a model
-    :return:
-    """
-    if config['Network'].getboolean('sequential') is True:
-        model = keras_model_sequential(x_train[0].shape)
-
-        tensorboard_callback = callbacks.TensorBoard(log_dir='./logs', histogram_freq=10, batch_size=10,
-                                                     write_graph=True,
-                                                     write_grads=True, write_images=True,
-                                                     embeddings_freq=0, embeddings_layer_names=None,
-                                                     embeddings_metadata=None, embeddings_data=None,
-                                                     update_freq='epoch'
-                                                     )
-        checkpoint = callbacks.ModelCheckpoint('models/weights.{epoch:02d}-{val_acc:.2f}.hdf5', monitor='val_acc',
-                                               verbose=1,
-                                               save_best_only=config['train/test/debug'].getboolean('save_best'),
-                                               save_weights_only=False, mode='auto', period=1)
-
-        return model, [tensorboard_callback, checkpoint]
-
-    elif config['Network'].getboolean('residual') is True:
-        model_res = keras_model_residual()
-
-        tensorboard_callback = callbacks.TensorBoard(log_dir='./logs', histogram_freq=0, batch_size=10,
-                                                     write_graph=True,
-                                                     write_grads=True, write_images=True,
-                                                     embeddings_freq=0, embeddings_layer_names=None,
-                                                     embeddings_metadata=None, embeddings_data=None,
-                                                     update_freq='epoch'
-                                                     )
-        checkpoint_res = callbacks.ModelCheckpoint('models/weights.{epoch:02d}-{val_acc:.2f}.hdf5',
-                                                   verbose=1,
-                                               save_best_only=config['train/test/debug'].getboolean('save_best'),
-                                               save_weights_only=False, mode='auto', period=1)
-
-        # early_stop = EarlyStopping(patience=5, verbose=1)
-
-        return model_res, [tensorboard_callback, checkpoint_res]
-
-
 def cca_algorithm(prediction):
     """
-    # The cca is based on this tutorial:
-    # https://www.pyimagesearch.com/2016/10/31/detecting-multiple-bright-spots-in-an-image-with-python-and-opencv/
+    The cca algorithm is based on this tutorial:
+    https://www.pyimagesearch.com/2016/10/31/detecting-multiple-bright-spots-in-an-image-with-python-and-opencv/
+
     :param prediction:
-    :return:
+    :return: mask
     """
     cca = measure.label(prediction, connectivity=None, background=0)
     mask = np.zeros(prediction.shape, dtype="uint8")
@@ -317,11 +325,18 @@ def cca_algorithm(prediction):
 
 def predict(x_test, image_names, model):
     """
+    This function executes several forms of data processing in order to optimize
+    the predictions from each network even further.
+    Processing:
+    1. Thresholding
+    2. Opening (Morphological operations)
+    3. Connected component analysis and binary hole filling
+
+    Then the function plots the predictions in matplotlib, before showing and saving the images
 
     :param x_test:
     :param image_names:
     :param model:
-    :return:
     """
     i = 0
     for img, names in zip(x_test, image_names):
@@ -384,7 +399,7 @@ def predict(x_test, image_names, model):
 
 
 def main():
-    # 'training' or 'testing' mode
+    # 'training' or 'testing' mode. Choose string value for "mode" in config.ini
     mode = config['train/test/debug']['mode']
 
     if mode == 'training':
@@ -457,7 +472,7 @@ def main():
             elif config['Network'].getboolean('residual') is True:
                 model = load_model('models/' + config['predictions']['weights'])
 
-            # Predicting the output
+            # Predicting the output and plots/saves it as images
             predict(x_test, image_names, model)
 
 
